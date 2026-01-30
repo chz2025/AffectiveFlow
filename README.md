@@ -285,12 +285,12 @@ Key results, evaluation metrics, and pointers to notebooks or figures can be add
 ### Figures (Gallery)
 
 <p align="center">
-  <a href="assets/figs/fig1.svg"><img src="assets/figs/fig1.svg" width="260" alt="Figure 1" style="margin-right:12px"/></a>
-  <a href="assets/figs/fig2.svg"><img src="assets/figs/fig2.svg" width="260" alt="Figure 2" style="margin-right:12px"/></a>
+  <a href="assets/figs/fig1.png"><img src="assets/figs/fig1.png" width="320" alt="Figure 1" style="margin-right:12px"/></a>
+  <a href="assets/figs/fig2.png"><img src="assets/figs/fig2.png" width="320" alt="Figure 2" style="margin-right:12px"/></a>
   <a href="assets/figs/fig3.svg"><img src="assets/figs/fig3.svg" width="260" alt="Figure 3"/></a>
 </p>
 
-> **Note:** These are placeholders. Replace `assets/figs/fig*.svg` with your real figures (PNG/SVG) when available.
+> **Note:** Figures 1 and 2 are from the paper (displayed as provided PNGs). Replace `assets/figs/fig3.svg` with real figures when available.
 
 ## Citation
 

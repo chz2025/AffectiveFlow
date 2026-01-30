@@ -1,0 +1,4 @@
+{
+  "tree_path_train": "data/processed/extes/Ex_Tree_train_20260120_172208.jsonl",
+  "log_path": "logs/ex_tree_train_20260120_172208.log"
+}

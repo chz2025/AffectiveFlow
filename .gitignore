@@ -1,0 +1,15 @@
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.env
+logs/
+*.log
+.ipynb_checkpoints/
+# Data files that shouldn't be tracked
+data/processed/

@@ -1,0 +1,110 @@
+experiment_name: "emoflow_extes"
+device: "cpu"
+
+data:
+  dataset_name: "ExTES"
+  processed_dir: "data/processed/extes"
+  split: "train"
+
+models:
+  seeker:
+    provider: "api"
+    model_name: "openai/gpt-4o"
+    max_new_tokens: 128
+    temperature: 0.7
+    top_p: 0.9
+    api_base: "https://xxxx.ai/api/v1"
+    api_key_env: "OPENAI_API_KEY"
+  supporter:
+    provider: "api"
+    model_name: "openai/gpt-4o"
+    max_new_tokens: 128
+    temperature: 0.7
+    top_p: 0.9
+    api_base: "https://xxxx.ai/api/v1"
+    api_key_env: "OPENAI_API_KEY"
+  
+
+    api_key_env: "OPENAI_API_KEY"
+  reward:
+    provider: "api"
+    model_name: "openai/gpt-4o"
+    max_new_tokens: 128
+    temperature: 0.7
+    top_p: 0.9
+    api_base: "https://xxxx.ai/api/v1"
+    api_key_env: "OPENAI_API_KEY"
+
+  strategy:
+    provider: ""
+    model_name: "model name"
+    max_new_tokens: 128
+    temperature: 0.7
+    top_p: 0.9
+    # api_base: "https://xxxx.ai/api/v1"
+
+mcts:
+  simulations_per_tree: 10
+  max_depth: 10
+  rollout_steps: 1
+  reward_weights:
+    Empathy: 0.1
+    Information_Quality: 0.1
+    Humanoid_Naturalness: 0.1
+    Strategic_Efficacy: 0.2
+  strategy_temperature: 1.0
+  ucb_visit_offset: 1.0
+
+  rho_kappa: 0.1
+
+  selection_lambda: 1
+  reward_normalization: 2.5
+
+train:
+  epochs: 1
+  batch_size: 300
+
+output:
+  tree_path: "data/processed/extes/Ex_Tree.jsonl"
+  scene_limit: 1
+  log_path: "logs/ex_tree.log"
+
+run:
+  offline: false
+
+
+path_extraction:
+  min_path_length: 2
+  max_path_length: null
+
+afpo_training:
+  model_name: "model"
+  epochs: 2
+  batch_size: 2
+  gradient_accumulation_steps: 2
+  # batch_size: 128
+  # gradient_accumulation_steps: 1
+  lr: 2e-5
+  max_length: 512
+  # max_length: 2048
+  log_path: "logs/afpo_cls.log"
+  output_dir: "output/afpo_cls"
+  save_steps: 0
+  save_total_limit: 2
+  save_epoch_checkpoint: false
+  save_best: true
+  best_metric: "val_loss"
+  best_metric_mode: "min"
+  beta: 0.1
+  use_lora: true
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.05
+  seed: 1
+  gamma: 1.0
+  resume_from_checkpoint: null   
+  show_batch_progress: true
+  eval_enabled: true
+  eval_every_epochs: 1
+  eval_use_ref_model: false
+  flatten_steps: true

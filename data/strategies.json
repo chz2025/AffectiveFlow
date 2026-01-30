@@ -1,0 +1,42 @@
+[
+  {
+    "strategy": "Reflective Statements",
+    "strategy_detail": "Briefly restate or paraphrase the seeker’s key message in your own words to show you understood. Stay faithful to their meaning; do not add new facts or solutions.",
+    "abbreviation": "RS"
+  },
+  {
+    "strategy": "Clarification",
+    "strategy_detail": "Ask one short, specific question to clarify an ambiguous detail or the seeker’s goal/need. Keep it gentle and avoid interrogating or stacking multiple questions.",
+    "abbreviation": "Cla"
+  },
+  {
+    "strategy": "Emotional Validation",
+    "strategy_detail": "Acknowledge the seeker’s feelings as understandable given their situation. Validate the emotion without agreeing with questionable beliefs or judging their choices.",
+    "abbreviation": "EV"
+  },
+  {
+    "strategy": "Empathetic Statements",
+    "strategy_detail": "Express warm empathy by reflecting the seeker’s emotional experience and what it might feel like for them. Focus on being with them, not fixing the problem.",
+    "abbreviation": "ES"
+  },
+  {
+    "strategy": "Affirmation",
+    "strategy_detail": "Highlight the seeker’s strengths, efforts, or values in a specific, believable way. Reinforce agency and self-efficacy without sounding exaggerated or dismissive.",
+    "abbreviation": "Aff"
+  },
+  {
+    "strategy": "Collaborative Planning",
+    "strategy_detail": "Work with the seeker to choose a small next step that matches their readiness. Offer to brainstorm together and respect their autonomy; avoid prescribing.",
+    "abbreviation": "CP"
+  },
+  {
+    "strategy": "Suggest Options",
+    "strategy_detail": "Offer a few concrete, low-pressure options the seeker can choose from. Keep choices realistic and aligned with the situation; avoid overwhelming them.",
+    "abbreviation": "SO"
+  },
+  {
+    "strategy": "Share Information",
+    "strategy_detail": "Provide concise, relevant information or a simple concept that helps the seeker understand what’s happening. Keep it accurate, non-clinical, and tied to their context.",
+    "abbreviation": "SI"
+  }
+]

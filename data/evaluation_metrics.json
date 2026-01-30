@@ -1,0 +1,52 @@
+{
+  "evaluation_metrics": [
+    {
+      "dimension": "Empathy",
+      "definition": "The ability of the system to perceive, understand, and validate the user's emotional state and underlying needs.",
+      "theoretical_basis": "Based on Rogers' Person-Centered Therapy: Empathic Understanding and Unconditional Positive Regard.",
+      "rubric": {
+        "5": "Profound Empathy: The system demonstrates deep cognitive and emotional empathy. It not only validates surface emotions but accurately interprets implied feelings and the underlying logic of the user's distress. The tone is highly supportive and non-judgmental.",
+        "4": "High Empathy: The system effectively identifies and validates the user's primary emotions. It offers comfort and shows a clear understanding of the user's perspective, establishing a solid therapeutic alliance.",
+        "3": "Moderate Empathy: The system acknowledges the user's emotions but remains superficial. Responses are generic (e.g., 'I understand') without specific contextual validation, or the emotional tone is slightly mismatched.",
+        "2": "Low Empathy: The system misinterprets the user's emotions or offers 'toxic positivity' (forced cheerfulness). It may focus too much on facts while ignoring the emotional component.",
+        "1": "Absence of Empathy: The system displays apathy, judgment, or invalidation. Responses are cold, robotic, or dismissive of the user's suffering, potentially causing emotional harm."
+      }
+    },
+    {
+      "dimension": "Information_Quality",
+      "definition": "The relevance, accuracy, and actionability of the information or advice provided to help the user.",
+      "theoretical_basis": "Based on Psychoeducation principles and Problem-Solving Therapy (PST) effectiveness.",
+      "rubric": {
+        "5": "Optimal Utility: Suggestions are highly actionable, specific, and perfectly tailored to the user's context. The advice provides new insights or concrete steps that directly address the root cause of the problem.",
+        "4": "High Utility: The system provides relevant and helpful suggestions. Most advice is practical, though it may lack the depth or personalization of the highest tier.",
+        "3": "Moderate Utility: The system offers generic advice (platitudes) that is theoretically correct but lacks specific application to the user's unique situation. Information is safe but not particularly insightful.",
+        "2": "Low Utility: The suggestions are vague, confusing, or largely irrelevant to the core issue. The advice may be technically feasible but unhelpful in the current context.",
+        "1": "Counterproductive/Harmful: The information provided is factually incorrect, dangerous, or completely irrelevant. Following the advice could worsen the user's situation."
+      }
+    },
+    {
+      "dimension": "Humanoid_Naturalness",
+      "definition": "The degree to which the system mimics human-like conversational patterns, minimizing robotic traits.",
+      "theoretical_basis": "Based on Turing Test criteria: Linguistic diversity, coherence, and absence of machine-generated artifacts (e.g., lists, repetitive templates).",
+      "rubric": {
+        "5": "Indistinguishable from Human: The dialogue flow is seamless, utilizing colloquialisms, appropriate hesitation, and varied sentence structures. There are absolutely no signs of AI templates or robotic formatting.",
+        "4": "Highly Natural: The conversation feels organic and fluid. While minor phrasing may hint at formality, the overall persona is consistent and engaging, resembling a caring friend.",
+        "3": "detectable AI Traits: The system is polite but overly formal or structured. Occasional use of repetitive phrases or 'textbook' grammar reveals its identity as a language model.",
+        "2": "Robot-like: The responses are stiff, repetitive, or heavily templated (e.g., always starting with 'I am sorry to hear that'). The tone is clinical rather than conversational.",
+        "1": "Machine Output: The response is disjointed, excessively verbose, or contains raw system artifacts (e.g., 'As an AI language model...'). It completely breaks the immersion of a support session."
+      }
+    },
+    {
+      "dimension": "Strategic_Efficacy",
+      "definition": "The appropriateness and effectiveness of the psychological support strategies employed relative to the user's current state.",
+      "theoretical_basis": "Based on the Phase Model of Psychotherapy: Matching interventions (e.g., Exploration, Insight, Action) to the client's readiness.",
+      "rubric": {
+        "5": "Masterful Execution: The chosen strategy is perfectly timed and executed. It seamlessly transitions the user from distress to relief or insight. The system demonstrates flexibility, combining strategies (e.g., validation + reframing) effectively.",
+        "4": "Effective Execution: The strategy is appropriate for the situation and is implemented correctly. It positively contributes to the conversation, though it may lack the nuance of a multi-layered intervention.",
+        "3": "Basic Execution: The system attempts a recognizable strategy, but the execution is clumsy or generic. It fits the general context but fails to deepen the interaction.",
+        "2": "Misaligned Strategy: The system employs a strategy that doesn't fit the user's current need (e.g., offering solutions when the user needs to vent). The intervention feels forced or premature.",
+        "1": "Counterproductive Strategy: The strategy exacerbates the user's distress (e.g., arguing with the user, blaming the user). The approach is fundamentally flawed for a support context."
+      }
+    }
+  ]
+}

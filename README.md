@@ -285,12 +285,17 @@ Key results, evaluation metrics, and pointers to notebooks or figures can be add
 ### Figures (Gallery)
 
 <p align="center">
-  <a href="assets/figs/fig1.png"><img src="assets/figs/fig1.png" width="320" alt="Figure 1" style="margin-right:12px"/></a>
-  <a href="assets/figs/fig2.png"><img src="assets/figs/fig2.png" width="320" alt="Figure 2" style="margin-right:12px"/></a>
-  <a href="assets/figs/fig3.svg"><img src="assets/figs/fig3.svg" width="260" alt="Figure 3"/></a>
+  <figure style="display:inline-block; margin:8px 18px; text-align:center">
+    <a href="assets/figs/fig1.png"><img src="assets/figs/fig1.png" width="480" alt="Figure 1"/></a>
+    <figcaption style="font-size:13px; color:#555; margin-top:6px">Figure 1 — model architecture (update caption as needed)</figcaption>
+  </figure>
+  <figure style="display:inline-block; margin:8px 18px; text-align:center">
+    <a href="assets/figs/fig2.png"><img src="assets/figs/fig2.png" width="480" alt="Figure 2"/></a>
+    <figcaption style="font-size:13px; color:#555; margin-top:6px">Figure 2 — key evaluation results (update caption as needed)</figcaption>
+  </figure>
 </p>
 
-> **Note:** Figures 1 and 2 are from the paper (displayed as provided PNGs). Replace `assets/figs/fig3.svg` with real figures when available.
+> **Note:** Figures are displayed larger and centered for readability. If you prefer different sizes or captions, tell me what to change.
 
 ## Citation
 

@@ -172,12 +172,4 @@ Notes:
 
 ---
 
-## Troubleshooting & Tips ⚠️
-
-- OOM: reduce `batch_size`, enable `gradient_checkpointing`, or use LoRA.
-- Slow training: increase `num_workers`, tune `gradient_accumulation_steps`, or use multi-GPU.
-- API generation issues: check `OPENAI_API_KEY`, rate limits, and network access.
-
----
-
 If you want a bilingual README, more examples, or a short demo section, tell me which parts to add or rephrase. ✨

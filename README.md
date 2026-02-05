@@ -2,7 +2,7 @@
 <p align="center">
   <tr>
     <td align="center" valign="middle" style="border: none;">
-      <img src="assets/figs/aflow_logo.png" height="42" alt="AFlow logo">
+      <img src="assets/figs/aflow_logo.png" height="60" alt="AFlow logo">
     </td>
     <!-- <td align="center" valign="middle" style="border: none; padding-left: 12px;">
       <span style="font-size: 40px; font-weight: 800; line-height: 1;">AFlow</span>

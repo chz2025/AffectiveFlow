@@ -1,24 +1,19 @@
-<!-- <p align="center"> -->
-  <!-- ====== Link Buttons (replace URLs) ====== -->
-  <!-- <a href="YOUR_HOMEPAGE_URL"><img src="https://img.shields.io/badge/Homepage-222?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_PROJECT_PAGE_URL"><img src="https://img.shields.io/badge/AFlow-0ea5e9?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_DEMO_URL"><img src="https://img.shields.io/badge/Demo-555?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_ONLINE_URL"><img src="https://img.shields.io/badge/Online-84cc16?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-333?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_PDF_URL"><img src="https://img.shields.io/badge/PDF-b91c1c?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_HF_MODELS_URL"><img src="https://img.shields.io/badge/Models-HuggingFace-f97316?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_HF_DATASET_URL"><img src="https://img.shields.io/badge/Dataset-HuggingFace-eab308?style=for-the-badge" /></a> -->
-<!-- </p> -->
-<!-- =======================
-AFlow Header (Logo + Badges)
-Replace ALL YOUR_* placeholders
-======================= -->
 
-<p align="center">
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" style="border: none;">
+      <img src="assets/aflow_logo.png" height="42" alt="AFlow logo">
+    </td>
+    <td align="center" valign="middle" style="border: none; padding-left: 12px;">
+      <span style="font-size: 40px; font-weight: 800; line-height: 1;">AFlow</span>
+    </td>
+  </tr>
+</table>
+<!-- <p align="center">
   <!-- Logo (replace file) -->
   <img src="assets/figs/aflow_logo.png" width="88" alt="AFlow" />
   <h1 align="center">AFlow</h1>
-</p>
+</p> -->
 
 <!-- <h1 align="center">AFlow</h1> -->
 
@@ -27,18 +22,6 @@ Replace ALL YOUR_* placeholders
 </h1>
 
 <!-- Badges Row (edit to match your paper) -->
-<!-- <p align="center"> -->
-  <!-- Paper / arXiv -->
-  <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-111?style=for-the-badge" /></a> -->
-  <!-- <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=for-the-badge" /></a> -->
-  <!-- Venue / Year -->
-  <!-- <a href="YOUR_VENUE_URL"><img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=for-the-badge" /></a> -->
-  <!-- License -->
-  <!-- <a href="LICENSE"><img src="https://img.shields.io/badge/License-YOUR__LICENSE-84cc16?style=for-the-badge" /></a> -->
-  <!-- Python / PyTorch -->
-  <!-- <img src="https://img.shields.io/badge/Python-3.10+-334155?style=for-the-badge&logo=python&logoColor=white" /> -->
-  <!-- <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=for-the-badge&logo=pytorch&logoColor=white" /> -->
-<!-- </p> -->
 <p align="center">
   <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-3b3b3b?style=flat-square" /></a>&nbsp; -->
   <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=flat-square" /></a>&nbsp;
@@ -54,10 +37,10 @@ Replace ALL YOUR_* placeholders
   <a href="#methodology">🔬 Methodology</a> •
   <a href="#quick-start">🚀 Quick Start</a> •
   <a href="#results">📊 Results</a> •
-  <!-- <a href="#citation">📝 Citation</a> -->
+  <a href="#configuration">📝 Configuration</a>
 </p>
 
-<hr/>
+
 ## Affective Flow
 
 Implementation of **AFlow (Affective Flow Language Model)** for **Emotional Support Conversation (ESC)**, with **search-distilled Affective Flow Preference Optimization (AFPO)**.
@@ -113,7 +96,7 @@ AFlow selects strategies using the learned policy and value signals, avoiding ex
 
 ---
 
-## 📊Results
+## 📊 Results
 
 ### Automatic evaluation (Table 1)
 
@@ -121,30 +104,28 @@ AFlow shows consistent improvements over competitive baselines on two ESC datase
 - **Strategy alignment** (Accuracy / Macro-F1)
 - **Generation quality** (BLEU, ROUGE-L, METEOR, PPL)
 - **Diversity** (Distinct-1/2)
-<p align="center">
-  <img src="assets/figs/table1.png" width="820" />
-</p>
 
 ### Robustness across backbones (Table 2)
 
 AFlow remains effective across diverse backbone LLMs (e.g., Qwen-2.5 / Gemma-2 / LLaMA-3.1) under different environments (e.g., GPT-4o / Claude-3.5).
-<p align="center">
-  <img src="assets/figs/table2.png" width="500" />
-</p>
+
 ### Pairwise preference evaluation (Table 3)
 
 AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts** (Win/Tie/Lose %s).  
-<p align="center">
-  <img src="assets/figs/table4.png" width="500" />
-</p>
 
 ### Ablation (Table 4)
-Removing any core component causes clear degradation:
-<p align="center">
-  <img src="assets/figs/table4.png" width="820" />
-</p>
 
----
+Removing any core component causes clear degradation:
+
+<div style="overflow-x: auto; white-space: nowrap; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 10px;">
+  <img src="assets/figs/table1.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
+  <img src="assets/figs/table2.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
+  <img src="assets/figs/table3.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
+  <img src="assets/figs/table4.png" style="display:inline-block; height: 360px;" />
+</div>
+<p align="center">
+  <sub>Scroll horizontally to view Tables 1–4.</sub>
+</p>
 
 ## Project Structure
 
@@ -278,8 +259,4 @@ Edit `configs/train_emoflow.yaml`:
 
 ## License
 
-This repository is released under the license specified in this project.
-
-```
-This project is licensed under the MIT License - see the LICENSE file for details.
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

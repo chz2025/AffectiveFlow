@@ -1,25 +1,18 @@
 
-<table align="center">
+<p align="center">
   <tr>
     <td align="center" valign="middle" style="border: none;">
       <img src="assets/figs/aflow_logo.png" height="42" alt="AFlow logo">
     </td>
-    <td align="center" valign="middle" style="border: none; padding-left: 12px;">
+    <!-- <td align="center" valign="middle" style="border: none; padding-left: 12px;">
       <span style="font-size: 40px; font-weight: 800; line-height: 1;">AFlow</span>
-    </td>
+    </td> -->
   </tr>
-</table>
-<!-- <p align="center">
-  <!-- Logo (replace file) -->
-  <img src="assets/figs/aflow_logo.png" width="88" alt="AFlow" />
-  <h1 align="center">AFlow</h1>
-</p> -->
+</p>
 
-<!-- <h1 align="center">AFlow</h1> -->
-
-<h1 align="center">
+<h2 align="center">
   <b>Affective Flow Language Model for Emotional Support Conversation</b>
-</h1>
+</h2>
 
 <!-- Badges Row (edit to match your paper) -->
 <p align="center">

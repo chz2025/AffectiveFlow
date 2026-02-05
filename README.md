@@ -2,7 +2,7 @@
 <table align="center">
   <tr>
     <td align="center" valign="middle" style="border: none;">
-      <img src="assets/aflow_logo.png" height="42" alt="AFlow logo">
+      <img src="assets/figs/aflow_logo.png" height="42" alt="AFlow logo">
     </td>
     <td align="center" valign="middle" style="border: none; padding-left: 12px;">
       <span style="font-size: 40px; font-weight: 800; line-height: 1;">AFlow</span>
@@ -42,8 +42,7 @@
 
 
 ## Affective Flow
-
-Implementation of **AFlow (Affective Flow Language Model)** for **Emotional Support Conversation (ESC)**, with **search-distilled Affective Flow Preference Optimization (AFPO)**.
+The **Affective Flow Language Model** advances multi-turn **Emotional Support Conversation** with fine-grained supervision and search-distilled **Affective Flow Preference Optimization** for strategy learning.
 
 <!-- ====== Figure 1 Placeholder ====== -->
 <p align="center">
@@ -98,34 +97,57 @@ AFlow selects strategies using the learned policy and value signals, avoiding ex
 
 ## 📊 Results
 
-### Automatic evaluation (Table 1)
+<details open>
+<summary><b>Automatic evaluation (Table 1)</b></summary>
 
 AFlow shows consistent improvements over competitive baselines on two ESC datasets (**ExTES** and **ESConv**) across:
 - **Strategy alignment** (Accuracy / Macro-F1)
 - **Generation quality** (BLEU, ROUGE-L, METEOR, PPL)
 - **Diversity** (Distinct-1/2)
 
-### Robustness across backbones (Table 2)
+<p align="center">
+  <img src="assets/figs/table1.png" width="920" />
+</p>
+<p align="center"><sub><b>Table 1：</b>Automatic evaluation results.</sub></p>
+
+</details>
+
+<details>
+<summary><b>Robustness across backbones (Table 2)</b></summary>
 
 AFlow remains effective across diverse backbone LLMs (e.g., Qwen-2.5 / Gemma-2 / LLaMA-3.1) under different environments (e.g., GPT-4o / Claude-3.5).
 
-### Pairwise preference evaluation (Table 3)
+<p align="center">
+  <img src="assets/figs/table2.png" width="760" />
+</p>
+<p align="center"><sub><b>Table 2：</b> Robustness across backbones and environments.</sub></p>
 
-AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts** (Win/Tie/Lose %s).  
+</details>
 
-### Ablation (Table 4)
+<details>
+<summary><b>Pairwise preference evaluation (Table 3)</b></summary>
+
+AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts** (Win/Tie/Lose %s).
+
+<p align="center">
+  <img src="assets/figs/table3.png" width="760" />
+</p>
+<p align="center"><sub><b>Table 3.</b> Pairwise preference evaluation.</sub></p>
+
+</details>
+
+<details>
+<summary><b>Ablation (Table 4)</b></summary>
 
 Removing any core component causes clear degradation:
 
-<div style="overflow-x: auto; white-space: nowrap; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 10px;">
-  <img src="assets/figs/table1.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
-  <img src="assets/figs/table2.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
-  <img src="assets/figs/table3.png" style="display:inline-block; height: 360px; margin-right: 12px;" />
-  <img src="assets/figs/table4.png" style="display:inline-block; height: 360px;" />
-</div>
 <p align="center">
-  <sub>Scroll horizontally to view Tables 1–4.</sub>
+  <img src="assets/figs/table4.png" width="920" />
 </p>
+<p align="center"><sub><b>Table 4.</b> Ablation study.</sub></p>
+
+</details>
+
 
 ## Project Structure
 

@@ -1,4 +1,3 @@
-````md
 <p align="center">
   <!-- ====== Link Buttons (replace URLs) ====== -->
   <a href="YOUR_HOMEPAGE_URL"><img src="https://img.shields.io/badge/Homepage-222?style=for-the-badge" /></a>

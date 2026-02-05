@@ -17,42 +17,48 @@ Replace ALL YOUR_* placeholders
 <p align="center">
   <!-- Logo (replace file) -->
   <img src="assets/figs/aflow_logo.png" width="88" alt="AFlow" />
+  <h1 align="center">AFlow</h1>
 </p>
 
-<h1 align="center">AFlow</h1>
+<!-- <h1 align="center">AFlow</h1> -->
 
-<p align="center">
+<h1 align="center">
   <b>Affective Flow Language Model for Emotional Support Conversation</b>
-</p>
+</h1>
 
 <!-- Badges Row (edit to match your paper) -->
-<p align="center">
+<!-- <p align="center"> -->
   <!-- Paper / arXiv -->
-  <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-111?style=for-the-badge" /></a>
-  <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=for-the-badge" /></a>
-
+  <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-111?style=for-the-badge" /></a> -->
+  <!-- <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=for-the-badge" /></a> -->
   <!-- Venue / Year -->
-  <a href="YOUR_VENUE_URL"><img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=for-the-badge" /></a>
-
+  <!-- <a href="YOUR_VENUE_URL"><img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=for-the-badge" /></a> -->
   <!-- License -->
-  <a href="YOUR_LICENSE_URL"><img src="https://img.shields.io/badge/License-YOUR__LICENSE-84cc16?style=for-the-badge" /></a>
-
+  <!-- <a href="LICENSE"><img src="https://img.shields.io/badge/License-YOUR__LICENSE-84cc16?style=for-the-badge" /></a> -->
   <!-- Python / PyTorch -->
-  <img src="https://img.shields.io/badge/Python-3.10+-334155?style=for-the-badge&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=for-the-badge&logo=pytorch&logoColor=white" />
+  <!-- <img src="https://img.shields.io/badge/Python-3.10+-334155?style=for-the-badge&logo=python&logoColor=white" /> -->
+  <!-- <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=for-the-badge&logo=pytorch&logoColor=white" /> -->
+<!-- </p> -->
+<p align="center">
+  <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-3b3b3b?style=flat-square" /></a>&nbsp; -->
+  <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=flat-square" /></a>&nbsp;
+  <!-- <img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=flat-square" />&nbsp; -->
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-YOUR__LICENSE-84cc16?style=flat-square" /></a>&nbsp;
+  <img src="https://img.shields.io/badge/Python-3.10+-334155?style=flat-square&logo=python&logoColor=white" />&nbsp;
+  <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=flat-square&logo=pytorch&logoColor=white" />
 </p>
 
 <!-- Quick Nav (edit anchors to match your sections) -->
 <p align="center">
-  <a href="#paper">📄 Overview</a> •
+  <a href="#overview">📄 Overview</a> •
   <a href="#methodology">🔬 Methodology</a> •
   <a href="#quick-start">🚀 Quick Start</a> •
   <a href="#results">📊 Results</a> •
-  <a href="#citation">📝 Citation</a>
+  <!-- <a href="#citation">📝 Citation</a> -->
 </p>
 
 <hr/>
-# Affective Flow
+## Affective Flow
 
 Implementation of **AFlow (Affective Flow Language Model)** for **Emotional Support Conversation (ESC)**, with **search-distilled Affective Flow Preference Optimization (AFPO)**.
 
@@ -68,69 +74,31 @@ Implementation of **AFlow (Affective Flow Language Model)** for **Emotional Supp
 
 ## 📄Overview
 
-Large language models (LLMs) have been widely used for **Emotional Support Conversation (ESC)**, but **multi-turn** support is still difficult: effective support requires **planning and maintaining strategy coherence** across turns, while many alignment methods provide supervision only at a coarse granularity (e.g., response-level or outcome-level), making **credit assignment for intermediate strategy decisions** challenging.
+Large language models (LLMs) have been widely applied to **Emotional Support Conversation (ESC)**, yet **multi-turn** support remains difficult. Effective support requires making **consistent strategy decisions** across turns, while many alignment approaches provide supervision mainly at the response/outcome level, offering limited guidance for **intermediate** strategy choices.
 
-**AFlow** addresses this by learning from **search-distilled multi-turn trajectories** with **prefix-level supervision**. We model a dialogue prefix as a state $s_t$ and a supportive strategy as an action $a_t$. AFlow trains:
+**AFlow** learns from **search-distilled multi-turn trajectories** and introduces **prefix-level supervision**. It treats a dialogue prefix as a decision state and a supportive strategy as the decision variable at each step. AFlow jointly learns:
+- a **strategy policy** for selecting strategies given a prefix, and
+- an **evaluation/value model** for assessing candidate strategies under the current prefix,
 
-- a **strategy policy** $\pi_\theta(a \mid s)$ for choosing the next strategy, and  
-- a **value/evaluation model** $V_\phi(s, a)$ for assessing strategy quality under a given prefix,
+and optimizes them with **AFPO**, which applies **subpath-level flow-balance** constraints over prefixes so that learning signals from later turns can be propagated back to earlier decision points.
 
-and leverages **MCTS** to construct informative multi-turn trajectories that provide stronger supervision signals for intermediate decisions.
-
-At test time, AFlow selects strategies by combining the policy prior and the learned value signal:
-$$
-a_t = \arg\max_{a \in \mathcal{A}} \Big( \log \pi_\theta(a \mid s_t) + V_\phi(s_t, a) \Big),
-$$
-then generates the supporter response conditioned on $(s_t, a_t)$.
+At inference time, AFlow performs **lightweight strategy selection** by combining the policy preference and the value signal, then generates the response conditioned on the chosen strategy.
 
 ---
 
 ## Key Features
 
-### 1) Problem formulation: prefix state + strategy action
-We model a multi-turn ESC dialogue as a sequence of states and actions:
-- state (dialogue prefix): $s_t = (x_{\le t})$
-- action (supportive strategy): $a_t \in \mathcal{A}$
-- transition induced by generation: $s_{t+1} \sim P(\cdot \mid s_t, a_t)$
+### 1) Modeling
+AFlow formulates multi-turn ESC as sequential decisions on dialogue prefixes, where the model selects a supportive strategy at each step before generating the response.
 
-This formulation makes **strategy learning** explicit, rather than implicitly learning it from raw text generation alone.
+### 2) MCTS distillation
+AFlow uses MCTS to explore multi-turn continuations under different strategies and distills the resulting trajectory trees into training signals for both the strategy policy and the evaluation/value model.
 
-### 2) Search-distilled supervision via MCTS
-AFlow uses **MCTS** to explore multi-turn continuations from a prefix $s_t$ under candidate strategies $a_t$, producing a trajectory tree with:
-- explored rollouts,
-- state/action visitation statistics,
-- and outcome-dependent signals that reflect long-horizon effects.
+### 3) AFPO training
+AFPO enforces **subpath-level flow-balance** over dialogue prefixes to provide **prefix-consistent** supervision, improving credit assignment for intermediate strategy decisions.
 
-These search artifacts are distilled into training data for learning $\pi_\theta$ and $V_\phi$.
-
-> (Place your paper’s Figure 2 here as a placeholder)
-<p align="center">
-  <img src="assets/figure2_framework.png" width="820" />
-</p>
-<p align="center">
-  <em>Figure 2. (Placeholder) AFlow framework: MCTS-based trajectory construction, AFPO training, and policy/value-guided inference.</em>
-</p>
-
-### 3) AFPO / flow-balance style learning objective (prefix-consistent credit assignment)
-To propagate supervision from later outcomes back to intermediate prefixes, AFlow introduces a **flow-balance style objective** defined on dialogue prefixes.
-
-Let $F(\cdot)$ denote a non-negative quantity (e.g., “flow” / “mass”) associated with prefixes or state-action pairs. The training objective enforces **consistency constraints** so that intermediate decisions are trained with signals that are consistent with long-horizon evaluations.
-
-A generic flow-balance form can be written as:
-$$
-\text{(incoming flow at } s) \;\approx\; \text{(outgoing flow from } s) \;+\; \text{(terminal contribution)},
-$$
-implemented over **subpaths/prefixes** to strengthen intermediate supervision.
-
-> **Important**: Replace the above generic balance equation with the *exact equation from your paper* (same symbols and terms), e.g., your “subpath flow-balance” constraint and your AFPO loss decomposition.
-
-### 4) Lightweight inference with policy/value guidance
-AFlow avoids heavy test-time search by using a lightweight scoring rule:
-$$
-\mathrm{score}(a \mid s_t) = \log \pi_\theta(a \mid s_t) + V_\phi(s_t, a),
-$$
-then selecting $a_t$ and generating the next response conditioned on $(s_t, a_t)$.
-This yields stable strategy selection while keeping inference efficient.
+### 4) Inference
+AFlow selects strategies using the learned policy and value signals, avoiding expensive test-time search while maintaining stable strategy coherence.
 
 
 ## 🔬Methodology
@@ -154,7 +122,7 @@ AFlow shows consistent improvements over competitive baselines on two ESC datase
 - **Generation quality** (BLEU, ROUGE-L, METEOR, PPL)
 - **Diversity** (Distinct-1/2)
 <p align="center">
-  <img src="aassets/figs/table1.png" width="820" />
+  <img src="assets/figs/table1.png" width="820" />
 </p>
 
 ### Robustness across backbones (Table 2)

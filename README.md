@@ -17,7 +17,7 @@
 <!-- Badges Row (edit to match your paper) -->
 <p align="center">
   <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-3b3b3b?style=flat-square" /></a>&nbsp; -->
-  <a href="YOUR_ARXIV_URL"><img src="https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b?style=flat-square" /></a>&nbsp;
+  <a href="http://arxiv.org/abs/2602.08826"><img src="https://img.shields.io/badge/arXiv-2602.08826-b31b1b?style=flat-square" /></a>&nbsp;
   <!-- <img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=flat-square" />&nbsp; -->
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-84cc16?style=flat-square" /></a>&nbsp;
   <img src="https://img.shields.io/badge/Python-3.10+-334155?style=flat-square&logo=python&logoColor=white" />&nbsp;
@@ -91,12 +91,9 @@ AFlow selects strategies using the learned policy and value signals, avoiding ex
 ## 📊 Results
 
 <details open>
-<summary><b>Automatic evaluation (Table 1)</b></summary>
+<summary><b>Automatic evaluation</b></summary>
 
-AFlow shows consistent improvements over competitive baselines on two ESC datasets (**ExTES** and **ESConv**) across:
-- **Strategy alignment** (Accuracy / Macro-F1)
-- **Generation quality** (BLEU, ROUGE-L, METEOR, PPL)
-- **Diversity** (Distinct-1/2)
+AFlow shows consistent improvements over competitive baselines on two ESC datasets.
 
 <p align="center">
   <img src="assets/figs/table1.png" width="920" />
@@ -106,7 +103,7 @@ AFlow shows consistent improvements over competitive baselines on two ESC datase
 </details>
 
 <details>
-<summary><b>Robustness across backbones (Table 2)</b></summary>
+<summary><b>Robustness across backbones </b></summary>
 
 AFlow remains effective across diverse backbone LLMs (e.g., Qwen-2.5 / Gemma-2 / LLaMA-3.1) under different environments (e.g., GPT-4o / Claude-3.5).
 
@@ -118,7 +115,7 @@ AFlow remains effective across diverse backbone LLMs (e.g., Qwen-2.5 / Gemma-2 /
 </details>
 
 <details>
-<summary><b>Pairwise preference evaluation (Table 3)</b></summary>
+<summary><b>Pairwise preference evaluation</b></summary>
 
 AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts** (Win/Tie/Lose %s).
 
@@ -130,7 +127,7 @@ AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts*
 </details>
 
 <details>
-<summary><b>Ablation (Table 4)</b></summary>
+<summary><b>Ablation</b></summary>
 
 Removing any core component causes clear degradation:
 

@@ -13,22 +13,18 @@
   <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch 2.0+">
 </p>
 
-<p align="center">
-  <a href="https://arxiv.org/abs/2602.08826"><img src="assets/buttons/paper.svg" alt="Paper"></a>
-  <a href="#methodology"><img src="assets/buttons/methodology.svg" alt="Methodology"></a>
-  <a href="#quick-start"><img src="assets/buttons/quickstart.svg" alt="Quick Start"></a>
-  <a href="#results-and-experiments"><img src="assets/buttons/results.svg" alt="Results"></a>
-  <a href="#citation"><img src="assets/buttons/citation.svg" alt="Citation"></a>
-</p>
+
+
+## Overview
+
+AFlow studies multi-turn Emotional Support Conversation (ESC) through strategy-level decisions. It builds dialogue trees with Monte Carlo Tree Search (MCTS), extracts trajectories from the search trees, and trains a strategy policy with Affective Flow Preference Optimization (AFPO). The supplementary scripts support automatic evaluation, pairwise preference evaluation, rollout analysis, ablations, and MCTS sensitivity experiments.
 
 <p align="center">
   <img src="figure1.png" width="720" alt="AFlow overview">
 </p>
 <p align="center"><sub>Figure 1. Overview of holistic supervision, preference learning, and AFlow.</sub></p>
 
-## Overview
 
-AFlow studies multi-turn Emotional Support Conversation (ESC) through strategy-level decisions. It builds dialogue trees with Monte Carlo Tree Search (MCTS), extracts trajectories from the search trees, and trains a strategy policy with Affective Flow Preference Optimization (AFPO). The supplementary scripts support automatic evaluation, pairwise preference evaluation, rollout analysis, ablations, and MCTS sensitivity experiments.
 
 ## Methodology
 

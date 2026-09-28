@@ -55,7 +55,6 @@ def format_chat_history(history: List[Dict[str, Any]]) -> str:
 
 
 def parse_strategy_output(raw: str, strategies: List[str]) -> Dict[str, float]:
-    # 尝试解析 JSON（有无反引号都行）
     match = re.search(r"`({.*})`", raw, re.DOTALL) or re.search(r"({.*})", raw, re.DOTALL)
     parsed: Dict[str, Any] = {}
     if match:
@@ -63,16 +62,14 @@ def parse_strategy_output(raw: str, strategies: List[str]) -> Dict[str, float]:
             parsed = json.loads(match.group(1))
         except json.JSONDecodeError:
             parsed = {}
-    # 失败则用正则解析 key:value
     if not parsed:
         parsed = {}
         for m in re.finditer(r"\"?([^\":]+?)\"?\s*:\s*([0-9]+(?:\.[0-9]+)?)", raw):
             parsed[m.group(1).strip()] = m.group(2)
-    # 对齐策略名（去掉括号缩写）
     scores: Dict[str, float] = {}
     for name in strategies:
         for key, val in parsed.items():
-            base = re.sub(r"\s*\(.*\)$", "", key).strip()  # 去掉 "(EV)" 之类的缩写
+            base = re.sub(r"\s*\(.*\)$", "", key).strip()  
             if base == name:
                 try:
                     scores[name] = float(val)
@@ -84,13 +81,11 @@ def parse_strategy_output(raw: str, strategies: List[str]) -> Dict[str, float]:
 
 def parse_reward_output(raw: str, metric_names: List[str]) -> Dict[str, float]:
     scores: Dict[str, float] = {}
-    # 形式1: 数字 “1: 5”
     for m in re.finditer(r"(\d+)\s*:\s*([0-5](?:\.\d+)?)", raw):
         idx = int(m.group(1)) - 1
         val = float(m.group(2))
         if 0 <= idx < len(metric_names):
             scores[metric_names[idx]] = val
-    # 形式2: 名称 “<Empathy>: <5>” 或 “Empathy: 5”
     for m in re.finditer(r"[<\[]?\s*([A-Za-z_]+)\s*[>\]]?\s*:\s*[<\[]?([0-5](?:\.\d+)?)", raw):
         name = m.group(1).replace("_", " ").strip()
         val = float(m.group(2))
@@ -175,11 +170,9 @@ class TreeNode:
     strategy: Optional[str] = None
     supporter_response: Optional[str] = None
     seeker_response: Optional[str] = None
-    # strategy_scores: Dict[str, float] = field(default_factory=dict)
     strategy_probs: Dict[str, float] = field(default_factory=dict)
     visits: int = 0
     total_reward: float = 0.0
-    # reward_trace: List[float] = field(default_factory=list)
     children: Dict[str, "TreeNode"] = field(default_factory=dict)
     is_terminal: str = ""
     action_stats: Dict[str, Dict[str, float]] = field(default_factory=dict)
@@ -194,12 +187,10 @@ class TreeNode:
             "strategy": self.strategy,
             "supporter_response": self.supporter_response,
             "seeker_response": self.seeker_response,
-            # "strategy_scores": self.strategy_scores,
             "strategy_probs": self.strategy_probs,
             "visits": self.visits,
             "total_reward": self.total_reward,
             "mean_reward": self.mean_reward(),
-            # "reward_trace": self.reward_trace,
             "history": self.history,
             "is_terminal": self.is_terminal,
             "action_stats": self.action_stats,
@@ -283,7 +274,7 @@ class BatchProgress:
         self.total = total
         self.count = 0
         try:
-            from tqdm import tqdm  # type: ignore
+            from tqdm import tqdm  
 
             self.bar = tqdm(
                 total=total,
@@ -453,7 +444,6 @@ class MCTSBuilder:
         if not memory_text:
             raise ValueError("Sample missing memory field.")
         
-        # 兼容性处理：尝试提取第一条消息
         try:
             first_msg_val = next(iter(memory_text[0].values()))
         except (IndexError, AttributeError):
@@ -461,19 +451,15 @@ class MCTSBuilder:
 
         root_history: List[Dict[str, Any]] = [{"role": "seeker", "content": first_msg_val}]
         root = TreeNode(node_id="root", depth=0, history=root_history)
-        
-        # 初始化根节点的策略概率
+
         probs = self.score_strategies(root)
         root.strategy_probs = probs
 
         for _ in range(self.simulations):
             node = root
-            # Path 记录 (父节点, 采取的动作)。不记录终止节点的 None 动作。
             path: List[Tuple[TreeNode, str]] = []
 
             while True:
-                # 1. 终止或截断判断
-                # 如果当前节点已经是终止节点，或者深度达到限制，直接评估
                 if node.is_terminal == "<ok>" or node.depth >= self.max_depth:
                     if node.visits > 0:
                         value = node.mean_reward()
@@ -485,34 +471,23 @@ class MCTSBuilder:
                     value = node.mean_reward()
                     self.backpropagate(path, value)
                     break
-                # 2. 选择动作 (Selection)
                 strategy = self.select_action(node)
 
-                # 3. 扩展 (Expansion)
                 if strategy not in node.children:
                     child = self.expand(node, sample, strategy)
-                    # 记录这一步边到路径
                     path.append((node, strategy))
-                    # 4. 模拟 (Simulation)
                     value = self.simulate(child, sample)
-                    # 5. 回传
                     self.backpropagate(path, value)
-                    # 本次 MCTS 迭代结束，跳出 while 循环，进行下一次 simulation
                     break
 
-                # 5. 下探 (Traverse)
-                # 子节点已存在，记录路径并继续向下搜索
                 path.append((node, strategy))
                 node = node.children[strategy]
-                # 继续 while 循环...
 
         return root
     
 
     def select_action(self, node: TreeNode) -> str:
-        # Formula 6/12: N(s) = Σ_a N(s,a).
         parent_visits = float(node.visits)
-        # Formula 5: ρ = κ / (κ + log(N(s)+1)).
         rho = self.rho_kappa / (1+ math.log(parent_visits + 1))
 
         scores: Dict[str, float] = {}
@@ -522,7 +497,6 @@ class MCTSBuilder:
             n_sa = stats.get("visits", 0.0)
             q_sa = stats.get("q", 0.0)
             denom = self.ucb_visit_offset + n_sa
-            # Formula 7: softmax over Q + λ * prior * sqrt(N(s)) / (ucb_visit_offset + N(s,a)).
             explore = self.selection_lambda * prior * math.sqrt(parent_visits / denom)
             scores[strategy] = q_sa + explore
         soft_probs = softmax(scores)
@@ -531,7 +505,6 @@ class MCTSBuilder:
             s: (1 - rho) * soft_probs.get(s, 0.0) + (0.1 * rho)
             for s in self.strategy_names
         }
-        # Greedy selection: pick the strategy with highest mixed probability.
         return max(mix_probs, key=mix_probs.get)
 
     def expand(self, node: TreeNode, sample: Dict[str, Any], strategy: str) -> TreeNode:
@@ -557,7 +530,6 @@ class MCTSBuilder:
             strategy=strategy,
             supporter_response=supporter_resp,
             seeker_response=seeker_resp,
-            # is_terminal=seeker_resp.strip() == "</end/>",
             is_terminal=terminal,
 
         )
@@ -571,7 +543,7 @@ class MCTSBuilder:
         rollout_history = list(node.history)
         total_reward = 0.0
         steps_run = 0
-        terminal_value = 1  # default
+        terminal_value = 1  
 
         for step in range(self.rollout_steps):
             steps_run += 1
@@ -583,20 +555,16 @@ class MCTSBuilder:
                 break
             strategy = max(probs.items(), key=lambda kv: kv[1])[0]
             
-            # 1. 生成 Supporter 回复
             supporter_resp = self.generate_supporter(strategy, rollout_history)
             rollout_history.append({"role": "supporter", "content": supporter_resp, "strategy": strategy})
-            
-            # 2. 计算当前步的 Reward
+
             reward_scores = self.score_reward(rollout_history)
             reward_value = compute_weighted_reward(reward_scores, self.weights) / max(1.0, self.reward_norm)
             total_reward += reward_value
-            
-            # 3. 生成 Seeker 回复
+
             seeker_resp = self.generate_seeker(sample, rollout_history)
             rollout_history.append({"role": "seeker", "content": seeker_resp})
-            
-            # 4. 检查是否结束
+
             s_trim = seeker_resp.strip()
             current_depth = node.depth + step + 1
             if s_trim.endswith("<ok>") or current_depth >= self.max_depth:
@@ -605,23 +573,18 @@ class MCTSBuilder:
             if s_trim == "</end/>":
                 terminal_value = 0.0
                 break
-        # 返回平均步长奖励
         return terminal_value * total_reward / max(1, steps_run)
 
     def backpropagate(self, path: List[Tuple[TreeNode, Optional[str]]], reward: float) -> None:
         for node, action in path:
-            # 更新节点统计
             node.visits += 1
             node.total_reward += reward
-            
-            # 更新边（动作）统计
+
             if action:
                 stats = node.action_stats.setdefault(action, {"visits": 0.0, "total_reward": 0.0, "mean_reward": 0.0, "q": 0.0})
                 stats["visits"] += 1
                 stats["total_reward"] += reward
                 stats["mean_reward"] = stats["total_reward"] / stats["visits"]
-                # 增量更新 Q 值
-                # stats["q"] += (stats["total_reward"]  - stats["q"]) / stats["visits"]
                 stats["q"] += (reward - stats["q"]) / stats["visits"]
 
     def score_strategies(self, node: TreeNode) -> Dict[str, float]:
@@ -636,7 +599,6 @@ class MCTSBuilder:
         for name in self.strategy_names:
             scores.setdefault(name, 0.0)
         probs = softmax(scores, temperature=self.strategy_temperature)
-        # probs = scores
         return probs
     
     def score_strategies_with_history(
@@ -728,14 +690,13 @@ def main() -> None:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     data_cfg = cfg.get("data", {})
-    processed_dir = pathlib.Path(data_cfg.get("processed_dir", "data/processed/extes"))
+    processed_dir = pathlib.Path(data_cfg.get("processed_dir", "data/processed/extes/splits"))
     split = data_cfg.get("split", "train")
     dataset_path = processed_dir / f"{split}.jsonl"
 
-    base_output = pathlib.Path(cfg.get("output", {}).get("tree_path", "data/processed/extes/Ex_Tree.jsonl"))
+    base_output = pathlib.Path(cfg.get("output", {}).get("tree_path", "data/processed/extes/trees/Ex_Tree.jsonl"))
     base_log = pathlib.Path(cfg.get("output", {}).get("log_path", "logs/ex_tree.log"))
 
-    # Inject split into filenames for all generated artifacts
     base_output = base_output.with_name(f"{base_output.stem}_{split}{base_output.suffix}")
     base_log = base_log.with_name(f"{base_log.stem}_{split}{base_log.suffix}")
 
@@ -812,7 +773,6 @@ def main() -> None:
                         "description": sample.get("description"),
                         "root": tree_root.to_dict(),
                     }
-                    # out_f.write(json.dumps(tree_obj, ensure_ascii=False) + "\n")
                     out_f.write(json.dumps(tree_obj, ensure_ascii=False, indent=2) + "\n")
                     global_idx += 1
                     last_nodes = node_count

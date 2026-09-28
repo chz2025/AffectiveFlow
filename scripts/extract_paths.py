@@ -1,34 +1,10 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Extract Training Trajectories from MCTS Trees
+Extract all root-to-leaf trajectories from an MCTS tree file.
+Output: JSONL, one trajectory per line (matches train_afpo streaming loader).
 
-This module extracts root-to-leaf paths from MCTS exploration trees generated
-during the dialogue planning phase. Each extracted path represents a complete
-dialogue trajectory suitable for preference-based learning.
-
-Features:
-  - Flexible path length filtering (minimum/maximum nodes per trajectory)
-  - Automatic tree path resolution from metadata or defaults
-  - Support for JSON, JSONL, and mixed format trees
-  - Outputs standardized JSONL for training
-
-Configuration:
-  - Path length constraints: configs/train_emoflow.yaml:[path_extraction]
-  - Tree source: analyze/tree_paths.json or data/processed/extes/Ex_Tree.jsonl
-
-Output Format:
-  Each line is a JSON object representing one root-to-leaf trajectory:
-  {
-    "traj_id": "unique-id",
-    "scene": "...",
-    "description": "...",
-    "states": [...],      # Dialogue history at each step
-    "actions": [...],     # Strategy selections
-    "Q": [...],           # Trajectory values
-    "V_teacher": [...],   # State value estimates
-    "strategy": [...]     # Strategy probability distributions
-  }
+Path length filtering uses configs/train_emoflow.yaml:path_extraction.{min,max}_path_length (node count).
+Default tree path: analyze/tree_paths.json:tree_path, else data/processed/extes/trees/Ex_Tree.jsonl.
 """
 from __future__ import annotations
 
@@ -37,10 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import yaml
 
-
-# ---------------- helpers ---------------- #
 def default_tree_path() -> Path:
     meta = Path("analyze/tree_paths.json")
     if meta.exists():
@@ -51,7 +24,7 @@ def default_tree_path() -> Path:
                 return Path(tp)
         except Exception:
             pass
-    return Path("data/processed/extes/Ex_Tree.jsonl")
+    return Path("data/processed/extes/trees/Ex_Tree.jsonl")
 
 
 def load_minmax() -> Tuple[int, int | None]:
@@ -60,6 +33,7 @@ def load_minmax() -> Tuple[int, int | None]:
     if not cfg_path.exists():
         return min_len, max_len
     try:
+        import yaml
         cfg = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     except Exception:
         return min_len, max_len
@@ -78,6 +52,37 @@ def load_minmax() -> Tuple[int, int | None]:
             except Exception:
                 pass
     return min_len, max_len
+
+
+def default_out_path(tree_path: Path) -> Path:
+    if tree_path.parent.name == "runs" and tree_path.parent.parent.name == "trees":
+        return tree_path.parent.parent.parent / "paths" / "runs" / f"{tree_path.stem}_paths.jsonl"
+    if tree_path.parent.name == "trees":
+        return tree_path.parent.parent / "paths" / f"{tree_path.stem}_paths.jsonl"
+    return tree_path.with_name(f"{tree_path.stem}_paths.jsonl")
+
+
+def update_tree_paths_rel(out_path: Path) -> None:
+    split = None
+    name = out_path.name.lower()
+    if "train" in name:
+        split = "train"
+    elif "val" in name or "valid" in name:
+        split = "val"
+    elif "test" in name:
+        split = "test"
+    if split is None:
+        return
+
+    meta_path = Path("analyze/tree_paths_rel.json")
+    data: Dict[str, Any] = {}
+    if meta_path.exists():
+        try:
+            data = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+    data[f"tree_path_{split}"] = str(out_path)
+    meta_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_records(path: Path) -> List[Dict[str, Any]]:
@@ -177,22 +182,6 @@ def mean_reward(node: Dict[str, Any]) -> float:
     return 0.0
 
 
-def max_action_q(node: Dict[str, Any]) -> Any:
-    stats = node.get("action_stats") or {}
-    if not isinstance(stats, dict) or not stats:
-        return None
-    q_vals = []
-    for entry in stats.values():
-        if isinstance(entry, dict) and entry.get("q") is not None:
-            try:
-                q_vals.append(float(entry["q"]))
-            except Exception:
-                continue
-    if q_vals:
-        return max(q_vals)
-    return None
-
-
 def enumerate_paths(tree: Dict[str, Any]) -> List[List[Dict[str, Any]]]:
     paths: List[List[Dict[str, Any]]] = []
 
@@ -227,25 +216,20 @@ def path_to_sample(path: List[Dict[str, Any]], rec: Dict[str, Any], strat_id_map
 
     for t, node in enumerate(path):
         mr = mean_reward(node)
-        if t == 0:
-            node_q = max_action_q(node)
-            if node_q is None:
-                node_q = mr
-        else:
-            node_q = None
-            parent = path[t - 1]
-            s = node.get("strategy")
+        node_q = None
+        if t + 1 < len(path):
+            s = path[t + 1].get("strategy")
             if s:
-                p_stats = parent.get("action_stats") or {}
-                if isinstance(p_stats, dict):
-                    entry = p_stats.get(s)
+                stats = node.get("action_stats") or {}
+                if isinstance(stats, dict):
+                    entry = stats.get(s)
                     if isinstance(entry, dict) and entry.get("q") is not None:
                         try:
                             node_q = float(entry["q"])
                         except Exception:
                             node_q = None
-            if node_q is None:
-                node_q = mr
+        if node_q is None:
+            node_q = mr
 
         states.append(
             {
@@ -280,7 +264,6 @@ def path_to_sample(path: List[Dict[str, Any]], rec: Dict[str, Any], strat_id_map
     }
 
 
-# ---------------- main ---------------- #
 def main() -> None:
     ap = argparse.ArgumentParser(description="Extract trajectories from MCTS tree JSON/JSONL.")
     ap.add_argument("path", nargs="?", default=None, help="Tree file path.")
@@ -307,11 +290,12 @@ def main() -> None:
                 continue
             samples.append(path_to_sample(p, rec, strat_id_map, abbr_map))
 
-    out_path = Path(args.out) if args.out else tree_path.with_name(f"{tree_path.stem}_paths.jsonl")
+    out_path = Path(args.out) if args.out else default_out_path(tree_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
         for sample in samples:
             f.write(json.dumps(sample, ensure_ascii=False) + "\n")
+    update_tree_paths_rel(out_path)
     print(f"Saved {len(samples)} trajectories to {out_path} (JSONL)")
 
 

@@ -1,33 +1,29 @@
-# =============================================================================
-# Core Dependencies for Emo_Flow_DPO: Action Flow and Preference Optimization
-# 
-# Note: PyTorch (torch, torchvision, torchaudio) must be installed separately
-# based on your hardware (CUDA version, CPU-only, etc.)
-# See: https://pytorch.org/get-started/locally/
-# =============================================================================
+# Install torch separately first, matched to your CUDA version.
+# See README.md -> "Environment setup" step 2. Not listed here since the
+# correct wheel/index differs per machine.
 
-# Transformer Models & Training
-transformers>=4.35.0       # Hugging Face transformers library
-accelerate>=0.24.0          # Distributed training framework
-peft>=0.4.0                 # Parameter-Efficient Fine-Tuning (LoRA)
-safetensors>=0.4.0          # Safe tensor serialization
+accelerate
+peft
+safetensors
+sentencepiece
+tqdm
+pyyaml
+numpy
+datasets
+huggingface_hub
+matplotlib
+networkx
+pydot
 
-# Tokenization & Text Processing
-sentencepiece>=0.1.99       # Tokenizer for certain models
-tqdm>=4.65.0                # Progress bars
+# transformers: installed from source because configs/train_emoflow.yaml
+# currently points afpo_training.model_name at a backbone (Qwen3.5-9B) new
+# enough that the latest stable PyPI release may not recognize its
+# model_type yet. If you switch to an older/stable backbone, you can replace
+# this line with a plain "transformers" instead. See README.md ->
+# "Environment setup" step 4.
+transformers @ git+https://github.com/huggingface/transformers.git
 
-# Configuration & Utilities
-pyyaml>=6.0                 # YAML config file parsing
-numpy>=1.24.0               # Numerical computing
-
-# Data & Evaluation
-datasets>=2.14.0            # Hugging Face datasets library
-huggingface_hub>=0.17.0     # Hub integration
-
-# Visualization (Optional for analysis scripts)
-matplotlib>=3.7.0           # Plotting library
-networkx>=3.1              # Graph/tree visualization
-pydot>=1.4.2               # DOT format support for graphs
-
-# Optional: Quantization (uncomment if using 8-bit or 4-bit training)
-# bitsandbytes>=0.41.0      # 8-bit and 4-bit optimization
+# Optional, not installed by default:
+#   bitsandbytes   -- only needed for quantized training
+# graphviz is a system/conda package, not pip-installable:
+#   conda install -c conda-forge graphviz -y

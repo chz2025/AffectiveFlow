@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+"""
+Quick stats for tree files: how many trees, how many root-to-leaf paths per tree, and average leaf depth.
 
+Usage:
+  python analyze/count_trees.py [TREE_PATH]
+If TREE_PATH is omitted, uses analyze/tree_paths.json -> tree_path, else falls back to data/processed/extes/trees/Ex_Tree.jsonl.
+"""
 from __future__ import annotations
 
 import argparse
@@ -19,7 +24,15 @@ def default_tree_path() -> Path:
                 return Path(tp)
         except Exception:
             pass
-    return Path("data/processed/extes/Ex_Tree.jsonl")
+    return Path("data/processed/extes/trees/Ex_Tree.jsonl")
+
+
+def default_report_path(tree_path: Path) -> Path:
+    if tree_path.parent.name == "runs" and tree_path.parent.parent.name == "trees":
+        return tree_path.parent.parent.parent / "reports" / f"{tree_path.stem}_count.text"
+    if tree_path.parent.name == "trees":
+        return tree_path.parent.parent / "reports" / f"{tree_path.stem}_count.text"
+    return tree_path.parent / f"{tree_path.stem}_count.text"
 
 
 def load_records(path: Path) -> List[Dict[str, Any]]:
@@ -47,7 +60,6 @@ def load_records(path: Path) -> List[Dict[str, Any]]:
     except Exception:
         pass
 
-    # stream decode multiple concatenated json objects
     out: List[Dict[str, Any]] = []
     decoder = json.JSONDecoder()
     idx = 0
@@ -66,7 +78,6 @@ def load_records(path: Path) -> List[Dict[str, Any]]:
     if out:
         return out
 
-    # fallback line-by-line jsonl
     for line in text.splitlines():
         line = line.strip()
         if not line:
@@ -124,8 +135,8 @@ def main() -> None:
     summary = "\n".join(lines)
     print(summary)
 
-    out_dir = tree_path.parent
-    out_path = out_dir / f"{tree_path.stem}_count.text"
+    out_path = default_report_path(tree_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(summary, encoding="utf-8")
 
 

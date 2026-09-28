@@ -1,274 +1,115 @@
-
 <p align="center">
-  <tr>
-    <td align="center" valign="middle" style="border: none;">
-      <img src="assets/figs/aflow_logo.png" height="80" alt="AFlow logo">
-    </td>
-    <!-- <td align="center" valign="middle" style="border: none; padding-left: 12px;">
-      <span style="font-size: 40px; font-weight: 800; line-height: 1;">AFlow</span>
-    </td> -->
-  </tr>
+  <img src="assets/figs/aflow_logo.png" height="80" alt="AFlow logo">
 </p>
 
-<h2 align="center">
-  <b>Affective Flow Language Model for Emotional Support Conversation</b>
-</h2>
-
-<!-- Badges Row (edit to match your paper) -->
 <p align="center">
-  <!-- <a href="YOUR_PAPER_URL"><img src="https://img.shields.io/badge/Paper-PDF-3b3b3b?style=flat-square" /></a>&nbsp; -->
-  <a href="http://arxiv.org/abs/2602.08826"><img src="https://img.shields.io/badge/arXiv-2602.08826-b31b1b?style=flat-square" /></a>&nbsp;
-  <!-- <img src="https://img.shields.io/badge/IJCAI-2025-2563eb?style=flat-square" />&nbsp; -->
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-84cc16?style=flat-square" /></a>&nbsp;
-  <img src="https://img.shields.io/badge/Python-3.10+-334155?style=flat-square&logo=python&logoColor=white" />&nbsp;
-  <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=flat-square&logo=pytorch&logoColor=white" />
+  <img src="figure1.png" width="720" alt="AFlow overview">
 </p>
+<p align="center"><sub>Figure 1. Overview of holistic supervision, preference learning, and AFlow.</sub></p>
 
-<!-- Quick Nav (edit anchors to match your sections) -->
-<p align="center">
-  <a href="#overview">📄 Overview</a> •
-  <a href="#methodology">🔬 Methodology</a> •
-  <a href="#quick-start">🚀 Quick Start</a> •
-  <a href="#results">📊 Results</a> •
-  <a href="#configuration">📝 Configuration</a>
-</p>
-
-
-## Affective Flow
-The **Affective Flow Language Model** advances multi-turn **Emotional Support Conversation** with fine-grained supervision and search-distilled **Affective Flow Preference Optimization** for strategy learning.
-
-<!-- ====== Figure 1 Placeholder ====== -->
-<p align="center">
-  <img src="assets/figs/fig1.png" width="720" />
-</p>
-<p align="center">
-  <em>Figure 1: Comparison of Emotional Support Conversation approaches</em>
-</p>
-
----
-
-## 📄Overview
-
-Large language models (LLMs) have been widely applied to **Emotional Support Conversation (ESC)**, yet **multi-turn** support remains difficult. Effective support requires making **consistent strategy decisions** across turns, while many alignment approaches provide supervision mainly at the response/outcome level, offering limited guidance for **intermediate** strategy choices.
-
-**AFlow** learns from **search-distilled multi-turn trajectories** and introduces **prefix-level supervision**. It treats a dialogue prefix as a decision state and a supportive strategy as the decision variable at each step. AFlow jointly learns:
-- a **strategy policy** for selecting strategies given a prefix, and
-- an **evaluation/value model** for assessing candidate strategies under the current prefix,
-
-and optimizes them with **AFPO**, which applies **subpath-level flow-balance** constraints over prefixes so that learning signals from later turns can be propagated back to earlier decision points.
-
-At inference time, AFlow performs **lightweight strategy selection** by combining the policy preference and the value signal, then generates the response conditioned on the chosen strategy.
-
----
-
-## Key Features
-
-### 1) Modeling
-AFlow formulates multi-turn ESC as sequential decisions on dialogue prefixes, where the model selects a supportive strategy at each step before generating the response.
-
-### 2) MCTS distillation
-AFlow uses MCTS to explore multi-turn continuations under different strategies and distills the resulting trajectory trees into training signals for both the strategy policy and the evaluation/value model.
-
-### 3) AFPO training
-AFPO enforces **subpath-level flow-balance** over dialogue prefixes to provide **prefix-consistent** supervision, improving credit assignment for intermediate strategy decisions.
-
-### 4) Inference
-AFlow selects strategies using the learned policy and value signals, avoiding expensive test-time search while maintaining stable strategy coherence.
-
-
-## 🔬Methodology
-
-<!-- ====== Figure 2 Placeholder ====== -->
-<p align="center">
-  <img src="assets/figs/fig2.png" width="820" />
-</p>
-<p align="center">
-  <em>Figure 2: Detailed diagram of the AFlow framework for emotional support conversation</em>
-</p>
-
----
-
-## 📊 Results
-
-<details open>
-<summary><b>Automatic evaluation</b></summary>
-
-AFlow shows consistent improvements over competitive baselines on two ESC datasets.
+<h1 align="center">Affective Flow for Emotional Support Conversation</h1>
 
 <p align="center">
-  <img src="assets/figs/table1.png" width="920" />
+  <a href="https://arxiv.org/abs/2602.08826"><img src="assets/buttons/paper.svg" alt="Paper"></a>
+  <a href="#methodology"><img src="assets/buttons/methodology.svg" alt="Methodology"></a>
+  <a href="#quick-start"><img src="assets/buttons/quickstart.svg" alt="Quick Start"></a>
+  <a href="#results-and-experiments"><img src="assets/buttons/results.svg" alt="Results"></a>
+  <a href="#citation"><img src="assets/buttons/citation.svg" alt="Citation"></a>
 </p>
-<p align="center"><sub><b>Table 1：</b>Automatic evaluation results.</sub></p>
 
-</details>
+## Overview
 
-<details>
-<summary><b>Robustness across backbones </b></summary>
+AFlow studies multi-turn Emotional Support Conversation (ESC) through strategy-level decisions. It builds dialogue trees with Monte Carlo Tree Search (MCTS), extracts trajectories from the search trees, and trains a strategy policy with Affective Flow Preference Optimization (AFPO). The supplementary scripts support automatic evaluation, pairwise preference evaluation, rollout analysis, ablations, and MCTS sensitivity experiments.
 
-AFlow remains effective across diverse backbone LLMs (e.g., Qwen-2.5 / Gemma-2 / LLaMA-3.1) under different environments (e.g., GPT-4o / Claude-3.5).
+## Methodology
+
+The pipeline combines a role-based dialogue environment, MCTS-based trajectory construction, and AFPO training with prefix-level flow supervision. At inference time, the trained policy and value model rank candidate support strategies.
 
 <p align="center">
-  <img src="assets/figs/table2.png" width="760" />
+  <img src="figure2.png" width="900" alt="AFlow methodology diagram">
 </p>
-<p align="center"><sub><b>Table 2：</b> Robustness across backbones and environments.</sub></p>
+<p align="center"><sub>Figure 2. MCTS trajectory construction, AFPO training, and lightweight inference.</sub></p>
 
-</details>
+## Quick Start
 
-<details>
-<summary><b>Pairwise preference evaluation</b></summary>
-
-AFlow is compared against baselines using **GPT-5.2 judge** and **Human Experts** (Win/Tie/Lose %s).
-
-<p align="center">
-  <img src="assets/figs/table3.png" width="760" />
-</p>
-<p align="center"><sub><b>Table 3.</b> Pairwise preference evaluation.</sub></p>
-
-</details>
-
-<details>
-<summary><b>Ablation</b></summary>
-
-Removing any core component causes clear degradation:
-
-<p align="center">
-  <img src="assets/figs/table4.png" width="920" />
-</p>
-<p align="center"><sub><b>Table 4.</b> Ablation study.</sub></p>
-
-</details>
-
-
-## Project Structure
-
-```text
-Emo_Flow_DPO/
-├── scripts/                # Training, tree generation, and data processing
-│   ├── build_ex_tree.py    # MCTS tree generation
-│   ├── extract_paths.py    # Extract training trajectories from trees
-│   ├── train_afpo.py       # AFDPO / Flow-Balance training entry
-│   ├── run_pipeline.sh     # End-to-end pipeline (tree → analysis → paths)
-│   └── run_train.sh        # Training launcher (verify params inside)
-├── analyze/                # Tree stats and visualization
-│   ├── count_trees.py
-│   └── draw_tree.py
-├── configs/                # Config files
-│   └── train_emoflow.yaml
-├── data/                   # Data and prompts
-│   ├── raw/                # Raw datasets (exconv / extes)
-│   ├── prompt.json
-│   ├── strategies.json
-│   └── evaluation_metrics.json
-├── requirements.txt        # Python dependencies
-└── README.md
-````
-
----
-
-## Requirements
-
-* Python 3.10+
-* PyTorch (install the CUDA/CPU build that matches your hardware)
-* Other dependencies in `requirements.txt`
-* For API-based MCTS: set `OPENAI_API_KEY` and configure `models.*.api_base` in `configs/train_emoflow.yaml`
-
----
-
-## 🚀Quick Start
-
-###  1. Install Environment
+### Environment
 
 ```bash
-conda create -n emoflow python=3.10 -y
-conda activate emoflow
+conda create -n esc_server python=3.10 -y
+conda activate esc_server
+```
 
-# Install PyTorch (choose the right CUDA/CPU build)
-pip install torch torchvision torchaudio
+Install PyTorch for the CUDA version on your machine using the [official PyTorch selector](https://pytorch.org/get-started/locally/), then install the remaining dependencies:
 
-# Install project dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-Optional: configure accelerate for multi-GPU.
+Optional packages:
 
 ```bash
-pip install accelerate
-accelerate config
+pip install bitsandbytes              # quantized training
+conda install -c conda-forge graphviz # analyze/draw_tree.py
 ```
 
-### 2. Download Base Model
+Set the backbone path in `configs/train_emoflow.yaml` under `afpo_training.model_name`. Tree construction also requires the API key environment variable configured under `models.*.api_key_env`; keep credentials out of the repository.
 
-* Set `afpo_training.model_name` in `configs/train_emoflow.yaml` to a HF model name or a local path.
-* If downloading from Hugging Face:
+### Run the pipeline
 
-```bash
-huggingface-cli login
-```
-
-* If using a local model, point `afpo_training.model_name` to the local directory (e.g., `/path/to/model`) and ensure all required model files are present.
-
-### 3. MCTS (Affective Flow signal construction)
-
-MCTS uses `data`, `models`, `mcts`, and `output` in `configs/train_emoflow.yaml`. It reads prompts and strategy definitions from `data/` and writes tree artifacts under `data/processed/...`.
-
-```bash
-# If using an API
-export OPENAI_API_KEY="your-api-key"
-
-# Generate MCTS trees
-python scripts/build_ex_tree.py
-
-# Tree stats (optional)
-python analyze/count_trees.py
-
-# Extract root-to-leaf trajectories
-python scripts/extract_paths.py
-```
-
-Default outputs:
-
-* Trees: `data/processed/extes/Ex_Tree_<split>_<timestamp>.jsonl`
-* Paths: `data/processed/extes/Ex_Tree_<split>_<timestamp>_paths.jsonl`
-* Metadata: `analyze/tree_paths.json` (auto-read by training)
-
-### 4. Start Training: AFPO (Flow-Balance)
-
-Training reads `afpo_training` from `configs/train_emoflow.yaml` and resolves the latest paths via `analyze/tree_paths.json`.
-
-```bash
-python scripts/train_afpo.py
-```
-
-Multi-GPU (optional):
-
-```bash
-accelerate launch --multi_gpu scripts/train_afpo.py
-```
-
-### 5. One-command pipeline (optional)
-
-If you want an end-to-end run (tree → analysis → paths → training), verify params inside scripts first:
+Build trees, summarize them, draw the search trees, and extract trajectories:
 
 ```bash
 bash scripts/run_pipeline.sh
 ```
 
----
+Train AFPO using the paths indexed in `analyze/tree_paths_rel.json`:
 
-## Configuration
+```bash
+python scripts/train_afpo.py
+```
 
-Edit `configs/train_emoflow.yaml`:
+To select GPUs with the launcher:
 
-* `data.processed_dir` / `data.split`: dataset directory and split
-* `models.*`: MCTS-stage LLMs (provider / model_name / temperature / api_base / api_key_env)
-* `mcts.*`: search settings (`simulations_per_tree`, `max_depth`, `reward_weights`, etc.)
-* `output.*`: tree/log outputs and `scene_limit`
-* `path_extraction.*`: path length filters (`min_path_length` / `max_path_length`)
-* `afpo_training.*`: training hyperparameters (`model_name`, `batch_size`, `lr`, `beta`, `gamma`, `use_lora`, etc.)
-* `run.offline`: set `true` to force offline generation (no API calls)
+```bash
+bash scripts/run_train.sh 0
+bash scripts/run_train.sh 0,1
+bash scripts/run_train.sh all
+```
 
----
+## Results and experiments
 
-## License
+The repository includes scripts for evaluating strategy accuracy and text metrics, analyzing rollout behavior, comparing model responses pairwise, running training ablations, and sweeping MCTS settings.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```bash
+# Automatic metrics
+python scripts/eval_auto.py --eval-data <external_eval.jsonl> \
+  --checkpoint output/afpo_cls/<run_or_ckpt>
+
+# Rollout analysis
+python scripts/eval_rollout.py --seed-data <external_eval.jsonl> \
+  --checkpoint output/afpo_cls/<run_or_ckpt>
+
+# Pairwise preference evaluation
+python scripts/eval_pairwise.py --file-a <aflow_preds.jsonl> \
+  --file-b <baseline_preds.jsonl> --judge-model <model>
+
+# AFPO ablation
+python scripts/train_afpo_ablation.py --variant wo_flow_balance
+```
+
+`eval_auto.py` reports strategy accuracy, Macro-F1, BLEU, ROUGE-L, METEOR, and diversity metrics. `eval_rollout.py` reports stage effectiveness, rewards by turn, and strategy entropy. See each script's `--help` output for options. MCTS sensitivity sweeps are available in `scripts/run_mcts_sensitivity.py`.
+
+## Repository layout
+
+```text
+analyze/    Tree analysis and active tree/path indexes
+configs/    Training and tree-building configuration
+data/       Source data, prompts, strategies, and evaluation metrics
+scripts/    Tree construction, training, evaluation, and experiment scripts
+```
+
+Processed data, runtime logs, and checkpoints may be generated by the pipeline and are not all tracked in Git. The default active metadata files are `analyze/tree_paths.json` and `analyze/tree_paths_rel.json`.
+
+## Citation
+
+See the [paper](https://arxiv.org/abs/2602.08826) for citation details.

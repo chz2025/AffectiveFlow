@@ -1,26 +1,14 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Action Flow and Preference Optimization (AFPO) Classifier Training
-
-This module implements the training pipeline for an AFPO classifier that performs
-action selection in emotional support conversations. The classifier uses a 
-language model backbone with a preference-based learning objective that incorporates:
-  - Action Flow (AF): Cumulative log-probability constraints across decision steps
-  - Direct Preference Optimization: Margin-based loss between preferred and suboptimal actions
-  - Value-based guidance: Contextual value estimates for state-action pairs
-
-Key Features:
-  - Lazy tokenization with prefix caching for memory efficiency
-  - Distributed training via Hugging Face Accelerate
-  - LoRA (Low-Rank Adaptation) for efficient model fine-tuning
-  - Comprehensive evaluation metrics and checkpoint management
-  - Resume capability from saved checkpoints
+AFPO Classifier Training
+- Loads trajectory paths JSON, lazily tokenizes each trajectory step.
+- Supports LoRA fine-tuning, distributed training via Accelerate, checkpointing, and validation metrics.
 """
 from __future__ import annotations
 from datetime import timedelta
 from accelerate import InitProcessGroupKwargs
 import json
+import logging
 import os
 import shutil
 import math
@@ -31,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
 import yaml
 from tqdm.auto import tqdm
@@ -40,19 +28,8 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed, ProjectConfiguration
 from peft import LoraConfig, get_peft_model, TaskType
 
-# Number of support strategies (action space dimension)
 NUM_CLASSES = 8
-
-
 def render_history(history: List[Dict[str, Any]]) -> str:
-    """Format dialogue history into a readable conversation string.
-    
-    Args:
-        history: List of dialogue turns, each containing 'role' and 'content'.
-        
-    Returns:
-        Formatted multi-line dialogue string.
-    """
     lines: List[str] = []
     for turn in history:
         role = turn.get("role", "")
@@ -61,17 +38,7 @@ def render_history(history: List[Dict[str, Any]]) -> str:
             continue
         lines.append(f"{role.capitalize()}: {content}")
     return "\n".join(lines)
-
-
 def load_strategy_id_map(path: Path = Path("data/strategies.json")) -> Dict[str, int]:
-    """Load mapping from strategy names to integer IDs.
-    
-    Args:
-        path: Path to strategies JSON file.
-        
-    Returns:
-        Dictionary mapping strategy name -> strategy ID.
-    """
     if not path.exists():
         return {}
     try:
@@ -84,16 +51,7 @@ def load_strategy_id_map(path: Path = Path("data/strategies.json")) -> Dict[str,
             name_to_id[item["strategy"]] = idx
     return name_to_id
 
-
 def id_to_name_map(name_to_id: Dict[str, int]) -> List[str]:
-    """Convert strategy ID-to-name mapping to a list indexed by ID.
-    
-    Args:
-        name_to_id: Dictionary mapping strategy name -> ID.
-        
-    Returns:
-        List where index i contains strategy name for ID i.
-    """
     if not name_to_id:
         return []
     max_idx = max(name_to_id.values())
@@ -103,22 +61,19 @@ def id_to_name_map(name_to_id: Dict[str, int]) -> List[str]:
             names[i] = n
     return names
 
+def id_to_name_map(name_to_id: Dict[str, int]) -> List[str]:
+    if not name_to_id:
+        return []
+    max_idx = max(name_to_id.values())
+    names = [""] * (max_idx + 1)
+    for n, i in name_to_id.items():
+        if i >= 0 and i < len(names):
+            names[i] = n
+    return names
 
 def load_samples(path: Path) -> List[Dict[str, Any]]:
-    """Load training trajectories from JSONL file.
-    
-    Supports both JSONL format (one object per line) and flat JSON arrays.
-    Each trajectory contains states (dialogue history), actions (strategy selections),
-    and auxiliary values (Q-values, V-values, etc.).
-    
-    Args:
-        path: Path to JSONL or JSON trajectory file.
-        
-    Returns:
-        List of trajectory dictionaries.
-        
-    Raises:
-        ValueError: If file content is not a list of samples.
+    """
+    Simple JSONL reader: one sample per line; if a line is a list, flatten it.
     """
     data: List[Dict[str, Any]] = []
     with path.open("r", encoding="utf-8") as f:
@@ -134,27 +89,9 @@ def load_samples(path: Path) -> List[Dict[str, Any]]:
     if not isinstance(data, list):
         raise ValueError(f"Expected a list of samples in {path}")
     return data
-
-
 def load_cls_config(cfg_path: Path = Path("configs/train_emoflow.yaml")) -> Dict[str, Any]:
-    """Load training configuration from YAML file.
-    
-    Validates that all required hyperparameters are present, including:
-    - Model and training parameters (learning rate, batch size, epochs)
-    - LoRA configuration (if using adapter-based fine-tuning)
-    - Evaluation settings (validation frequency, metrics)
-    - Loss function coefficients (beta for KL penalty, gamma for value margin)
-    
-    Args:
-        cfg_path: Path to training configuration YAML file.
-        
-    Returns:
-        Dictionary containing all configuration parameters.
-        
-    Raises:
-        FileNotFoundError: If configuration file not found.
-        ValueError: If required keys are missing.
-    """
+    if not cfg_path.exists():
+        raise FileNotFoundError(f"Config file not found: {cfg_path}")
 
     raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
     sec = raw.get("afpo_training") or raw.get("afpo_classifier")
@@ -189,32 +126,7 @@ def load_cls_config(cfg_path: Path = Path("configs/train_emoflow.yaml")) -> Dict
         raise ValueError(f"Missing required AFPO config keys: {missing}")
 
     return sec
-
-# ========================
-# Dataset & Collate Function
-# ========================
-
 class LazyTokenizedDataset(Dataset):
-    """Lazy tokenization dataset for trajectory sequences.
-    
-    This dataset loads trajectory data on-the-fly and caches tokenized prefixes
-    to avoid redundant tokenization. Each trajectory consists of multiple
-    dialogue steps, where each step has:
-      - state: dialogue history (context for decision)
-      - action: chosen strategy ID (preferred action)
-      - auxiliary values: Q-values, V-values for preference learning
-      
-    The tokenization is done lazily to reduce memory overhead. Prefixes
-    (scene + description) are cached since they repeat across steps in
-    the same trajectory.
-    
-    Args:
-        samples: List of trajectory dictionaries.
-        tokenizer: Hugging Face tokenizer instance.
-        max_len: Maximum sequence length (for padding/truncation).
-        strat_id_map: Mapping from strategy names to integer IDs.
-        desc: Description for progress bar.
-    """
     def __init__(self, samples: List[Dict[str, Any]], tokenizer, max_len: int, strat_id_map: Dict[str, int], desc: str = "Processing"):
         self.tokenizer = tokenizer
         self.max_len = max_len
@@ -238,70 +150,55 @@ class LazyTokenizedDataset(Dataset):
                 "strategy": sample.get("strategy") or [],
             }
             self.items.append(traj_data)
+
+        action_counts: Dict[int, int] = {}
+        for traj in self.items:
+            for act in traj["actions"]:
+                a_id = act.get("chosen_strategy_id")
+                if a_id is not None:
+                    action_counts[int(a_id)] = action_counts.get(int(a_id), 0) + 1
+
+        self.sample_weights: List[float] = []
+        for traj in self.items:
+            ids = [int(act["chosen_strategy_id"]) for act in traj["actions"] if act.get("chosen_strategy_id") is not None]
+            if ids:
+                weight = sum(1.0 / action_counts[a] for a in ids) / len(ids)
+            else:
+                weight = 1.0
+            self.sample_weights.append(weight)
+
     def _build_prefix(self, scene: str, description: str) -> str:
-        """Build the context prefix for a trajectory.
-        
-        The prefix provides domain context (scene and emotional description)
-        that is constant across all decision steps in a trajectory.
-        
-        Args:
-            scene: Environmental/contextual description.
-            description: Emotional situation summary.
-            
-        Returns:
-            Formatted prefix string.
-        """
         scene = scene or ""
         description = description or ""
         return f"SCENE: {scene}\nDESC: {description}\nTask: Select the next support strategy id (0-7).\n"
 
     def _get_prefix_ids(self, prefix: str) -> List[int]:
-        """Get cached tokenized prefix IDs to avoid redundant tokenization.
-        
-        Uses an in-memory cache to store prefix token IDs since prefixes
-        repeat across trajectory steps. This significantly reduces tokenization
-        overhead during training.
-        
-        Args:
-            prefix: Prefix string to tokenize.
-            
-        Returns:
-            List of token IDs for the prefix (without special tokens).
-        """
         if prefix in self._prefix_cache:
             return self._prefix_cache[prefix]
 
-        # Tokenize once without special tokens; they're added during sequence assembly
         ids = self.tokenizer.encode(prefix, add_special_tokens=False)
+
         self._prefix_cache[prefix] = ids
         return ids
     def __len__(self) -> int:
         return len(self.items)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        """Construct a training example from a single trajectory.
-        
-        For each trajectory, this method:
-        1. Extracts decision steps (state, chosen action, alternative action)
-        2. Tokenizes dialogue history with cached prefixes
-        3. Applies padding/truncation to fixed sequence length
-        4. Returns structured tensor data for the loss computation
-        
-        Each trajectory yields multiple (state, action) pairs for preference learning.
-        
-        Args:
-            idx: Trajectory index.
-            
-        Returns:
-            Dictionary containing:
-            - input_ids: Tokenized sequence [T, max_len]
-            - attention_mask: Attention mask [T, max_len]
-            - labels: Preferred action IDs [T]
-            - q_values: Q-values for each state [T]
-            - v_values: Value estimates [T]
-            - worst_ids: Alternative (suboptimal) action IDs [T]
-            - traj_id: Trajectory identifier
-        """
+        item = self.items[idx]
+        actions = item["actions"]
+        states = item["states"]
+
+        v_vals_raw = item["v_teacher"] or [1.0] * len(states)   
+        q_source = item["q_source"] or [0.0] * len(states)
+
+        prefix_str = self._build_prefix(item.get("scene"), item.get("description"))
+        prefix_ids = self._get_prefix_ids(prefix_str)
+
+        bos = self.tokenizer.bos_token_id
+        eos = self.tokenizer.eos_token_id
+        pad = self.tokenizer.pad_token_id
+        if pad is None:
+            pad = eos if eos is not None else 0
 
         texts = []
         labels = []
@@ -310,30 +207,24 @@ class LazyTokenizedDataset(Dataset):
         worst_ids: List[int] = []
         steps: List[int] = []
 
-        # Extract decision steps from trajectory
         for act in actions:
-            t = act.get("t")  # Decision step index
-            a_id = act.get("chosen_strategy_id")  # Preferred action
+            t = act.get("t")
+            a_id = act.get("chosen_strategy_id")
             if t is None or a_id is None or t >= len(states):
                 continue
 
-            # Dialogue history at this decision point (conversation context)
             hist = states[t].get("history", [])
-            text = render_history(hist)
+            text = render_history(hist)  
             texts.append(text)
             labels.append(int(a_id))
 
-            # Q-value and V-value for preference learning
             q_vals.append(float(q_source[t]) if t < len(q_source) else 0.0)
             v_vals.append(float(v_vals_raw[t]) if t < len(v_vals_raw) else 1.0)
-            
-            # Sample worst (suboptimal) action for DPO-style learning
             worst_id: Optional[int] = None
             strat_list = item.get("strategy") or []
             if t < len(strat_list) and isinstance(strat_list[t], dict):
                 probs = strat_list[t]
                 if probs:
-                    # Select from lowest-probability actions to get true negatives
                     sorted_probs = sorted(probs.items(), key=lambda kv: kv[1])
                     candidates = []
                     for name, _p in sorted_probs:
@@ -350,19 +241,16 @@ class LazyTokenizedDataset(Dataset):
 
         if not texts:
             return None
-        
-        # Tokenize dialogue history (suffix part, not including prefix)
         suffix_enc = self.tokenizer(
             texts,
-            add_special_tokens=False,
-            truncation=False,
+            add_special_tokens=False,   
+            truncation=False,           
             padding=False,
             return_attention_mask=False,
             return_tensors=None
         )
-        suffix_ids_list = suffix_enc["input_ids"]
+        suffix_ids_list = suffix_enc["input_ids"]  
 
-        # Assemble final sequences: BOS + prefix + suffix + EOS, then truncate and pad
         input_ids_batch = []
         attn_mask_batch = []
 
@@ -375,15 +263,12 @@ class LazyTokenizedDataset(Dataset):
             if eos is not None:
                 ids.append(eos)
 
-            # Truncation strategy: preserve prefix (context) and suffix tail (recent history)
             if len(ids) > self.max_len:
                 fixed_len = (1 if bos is not None else 0) + len(prefix_ids) + (1 if eos is not None else 0)
                 avail = self.max_len - fixed_len
                 if avail < 0:
-                    # Extreme case: prefix itself exceeds max_len
                     ids = ids[-self.max_len:]
                 else:
-                    # Keep: BOS + prefix + suffix_tail + EOS
                     suffix_tail = suffix_ids[-avail:] if avail > 0 else []
                     ids = []
                     if bos is not None:
@@ -395,7 +280,6 @@ class LazyTokenizedDataset(Dataset):
 
             attn = [1] * len(ids)
 
-            # Pad to max_len
             if len(ids) < self.max_len:
                 pad_len = self.max_len - len(ids)
                 ids = ids + [pad] * pad_len
@@ -404,7 +288,6 @@ class LazyTokenizedDataset(Dataset):
             input_ids_batch.append(ids)
             attn_mask_batch.append(attn)
 
-        # Convert to tensors: [T, max_len]
         input_ids = torch.tensor(input_ids_batch, dtype=torch.long)
         attention_mask = torch.tensor(attn_mask_batch, dtype=torch.long)
 
@@ -421,70 +304,28 @@ class LazyTokenizedDataset(Dataset):
 
 
 def cls_collate(batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Collate function for batching trajectories.
-    
-    Filters out None samples (invalid trajectories) and returns a list
-    of valid trajectory samples for the training step.
-    
-    Args:
-        batch: List of samples from dataset.
-        
-    Returns:
-        Filtered list of non-None samples.
-    """
     return [b for b in batch if b is not None]
 
-
-# ========================
-# Model Architecture
-# ========================
 class ClassifierHead(nn.Module):
-    """Simple linear classification head for action prediction.
-    
-    Takes the last hidden state from the language model and projects
-    it to the action space (8 support strategies).
-    """
     def __init__(self, hidden_size: int, num_classes: int = NUM_CLASSES):
         super().__init__()
         self.linear = nn.Linear(hidden_size, num_classes)
 
     def forward(self, hidden: torch.Tensor) -> torch.Tensor:
-        """Project hidden states to action logits.
-        
-        Args:
-            hidden: [batch_size, hidden_size]
-            
-        Returns:
-            Logits over action space [batch_size, num_classes]
-        """
         return self.linear(hidden)
-
-
 class AFPOClassifier(nn.Module):
-    """AFPO Classifier with language model backbone and dual heads.
-    
-    Architecture:
-    - Backbone: Transformer language model (e.g., Llama, Qwen)
-    - Classification head: Predicts preferred action logits
-    - Value head: Estimates state value for DPO margin computation
-    
-    Supports:
-    - LoRA fine-tuning for parameter efficiency
-    - Gradient checkpointing to reduce memory
-    - Flexible cache management
-    
-    Args:
-        base_name: HuggingFace model ID for the language model.
-        num_classes: Number of action classes (default: 8 strategies).
-        use_lora: Whether to apply LoRA adapter.
-        lora_config: LoRA hyperparameters (rank, alpha, dropout).
-        gradient_checkpointing: Enable gradient checkpointing for memory efficiency.
-        use_cache: Whether to cache attention values in model.
-    """
+    def __init__(
+        self,
+        base_name: str,
+        num_classes: int = NUM_CLASSES,
+        use_lora: bool = False,
+        lora_config: Dict | None = None,
+        gradient_checkpointing: bool = True,
+        use_cache: bool | None = None,
+    ):
         super().__init__()
         self.backbone = AutoModel.from_pretrained(base_name, trust_remote_code=True)
         
-        # Apply LoRA adapter for efficient fine-tuning
         if use_lora:
             peft_cfg = LoraConfig(
                 task_type=TaskType.FEATURE_EXTRACTION,
@@ -492,29 +333,23 @@ class AFPOClassifier(nn.Module):
                 lora_alpha=lora_config.get("lora_alpha", 32),
                 lora_dropout=lora_config.get("lora_dropout", 0.05),
                 bias="none",
-                # Target all major projection layers for maximum expressiveness
-                target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj","mlp.dense_h_to_4h","mlp.dense_4h_to_h","embed_tokens","embed_positions","lm_head"]
+                target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj","embed_tokens","in_proj_qkv","in_proj_a","in_proj_b","in_proj_z","out_proj"]
             )
             self.backbone = get_peft_model(self.backbone, peft_cfg)
-        
-        # Gradient checkpointing: trade compute for memory
         if gradient_checkpointing and hasattr(self.backbone, "gradient_checkpointing_enable"):
             self.backbone.gradient_checkpointing_enable()
         elif hasattr(self.backbone, "gradient_checkpointing_disable"):
             self.backbone.gradient_checkpointing_disable()
 
-        # Configure attention cache behavior
         if hasattr(self.backbone, "config"):
+            text_config = self.backbone.config.get_text_config()
             if use_cache is None:
-                self.backbone.config.use_cache = not gradient_checkpointing
+                text_config.use_cache = not gradient_checkpointing
             else:
-                self.backbone.config.use_cache = bool(use_cache)
-        
-        hidden = self.backbone.config.hidden_size
+                text_config.use_cache = bool(use_cache)
+        hidden = self.backbone.config.get_text_config().hidden_size
         self.head = ClassifierHead(hidden, num_classes)
         self.head.float()
-        
-        # Value head: estimates normalized value for each action
         self.value_head = nn.Sequential(
             nn.Linear(hidden, hidden),
             nn.GELU(),
@@ -524,153 +359,68 @@ class AFPOClassifier(nn.Module):
         self.value_head.float()
 
     def forward(self, input_ids, attention_mask):
-        """Forward pass: extract features and compute action/value logits.
-        
-        Args:
-            input_ids: Tokenized input [batch_size, seq_len]
-            attention_mask: Attention mask [batch_size, seq_len]
-            
-        Returns:
-            logits: Action logits [batch_size, num_classes]
-            v_logits: Value estimates [batch_size, num_classes]
-        """
         out = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
         hidden_states = out.last_hidden_state
-        
-        # Extract last non-padded token representation
         lengths = attention_mask.sum(dim=1) - 1
         lengths = lengths.clamp(min=0)
         idx = lengths.unsqueeze(-1).unsqueeze(-1).expand(-1, 1, hidden_states.size(-1))
         last_hidden = hidden_states.gather(dim=1, index=idx).squeeze(1)
-        
+        last_hidden = last_hidden.float()
         logits = self.head(last_hidden)
         v_logits = self.value_head(last_hidden)
         return logits, v_logits
     
     def print_trainable_parameters(self):
-        """Print statistics on trainable vs total parameters."""
         if hasattr(self.backbone, "print_trainable_parameters"):
             self.backbone.print_trainable_parameters()
         else:
             trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
             all_params = sum(p.numel() for p in self.parameters())
-            print(f"trainable params: {trainable} || all params: {all_params} || trainable%: {100 * trainable / all_params:.4f}")
-
-
-# ========================
-# Loss Function
-# ========================
+            logging.info(f"trainable params: {trainable} || all params: {all_params} || trainable%: {100 * trainable / all_params:.4f}")
 
 def flow_balance_loss(logits, logits_ref, v_logits, actions, worst_ids, q_values, v_teacher, beta=0.1, gamma=1.0):
-    """Compute the Action Flow and Preference Optimization (AFPO) loss.
-    
-    The loss combines three components:
-    
-    1. Flow Loss (main objective): Enforces action flow constraints
-       - Flow = q_value * v_value (cumulative value estimate along trajectory)
-       - Constraint: flow difference between state intervals ≈ accumulated log-prob
-       
-    2. KL Divergence (regularization): Divergence from reference model
-       - Coefficient: beta
-       
-    3. Value Margin Loss (DPO-style): Margin between preferred and worst actions
-       - Coefficient: gamma
-       - Margin enforces v[preferred] - v[worst] ≥ gamma
-    
-    Args:
-        logits: Action logits from classifier [T, num_classes]
-        logits_ref: Action logits from reference model [T, num_classes] or None
-        v_logits: Value estimates [T, num_classes]
-        actions: Preferred action IDs [T]
-        worst_ids: Worst (negative) action IDs [T]
-        q_values: Q-values for trajectory states [T]
-        v_teacher: Target value estimates [T]
-        beta: KL regularization coefficient
-        gamma: Value margin coefficient
-        
-    Returns:
-        tuple: (total_loss, flow_mse, kl_div, accuracy, eval_loss)
-    """
     logprobs = torch.log_softmax(logits, dim=-1)
-    
-    # Log-probability of preferred actions
+
     lp = logprobs.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
-    
-    # KL divergence from reference model
     if logits_ref is not None:
         logprobs_ref = torch.log_softmax(logits_ref, dim=-1)
         lp_ref = logprobs_ref.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
         kl = (lp - lp_ref).mean()
     else:
         kl = torch.zeros((), device=logits.device)
-    
-    # Value estimates for preferred and worst actions
     v_pos = v_logits.gather(-1, actions.unsqueeze(-1)).squeeze(-1)
     v_neg = v_logits.gather(-1, worst_ids.unsqueeze(-1)).squeeze(-1)
 
     T = lp.size(0)
     device = lp.device
 
-    # Classification accuracy on preferred actions
     preds = logits.argmax(dim=-1)
     correct = (preds == actions).float().sum()
     accuracy = correct / T
 
-    # Compute action flow constraints
-    # prefix[i] = cumulative log-prob up to step i
     prefix = torch.cat([torch.zeros(1, device=device), torch.cumsum(lp, dim=0)])
     idx = torch.arange(T, device=device)
     m_idx, n_idx = torch.meshgrid(idx, idx, indexing="ij")
     
-    # delta_rho[m, n] = log(rho_m, rho_n) = sum_{i=m}^{n} log pi(a_i)
-    delta_rho = prefix[n_idx + 1] - prefix[m_idx]
-    
-    # flow[i] = q_value[i] * v_value[i]
+    delta_rho = prefix[n_idx + 1] - prefix[m_idx] 
     flow = q_values * v_pos
     logF = torch.log(torch.clamp(flow, min=1e-6))
     logF_diff = logF[n_idx] - logF[m_idx]
 
-    # Only compare pairs (m, n) where m < n (upper triangle)
-    tri_mask = torch.triu(torch.ones_like(delta_rho), diagonal=1)
+    tri_mask = torch.triu(torch.ones_like(delta_rho), diagonal=1) 
     flow_err = (logF_diff - delta_rho) * tri_mask
     
     pair_count = tri_mask.sum().clamp(min=1.0)
     flow_mse = (flow_err.pow(2).sum() / pair_count)
 
-    # DPO-style value margin loss: ensure v[preferred] - v[worst] ≥ gamma
     eval_loss = torch.relu(gamma - (v_pos - v_neg)).mean()
-    
-    # Combine all loss terms
     total_loss = flow_mse + beta * torch.relu(kl) + eval_loss
-    
+
     return total_loss, flow_mse, kl, accuracy, eval_loss
 
-
-# ========================
-# Evaluation
-# ========================
 def evaluate(model, ref_model, loader, beta, gamma, accelerator, use_ref_model: bool, flatten_steps: bool):
-    """Run evaluation on validation set.
-    
-    Computes loss, flow error, KL divergence, and action accuracy across all
-    validation trajectories using the same loss computation as training.
-    
-    Args:
-        model: Trained classifier model
-        ref_model: Reference model for KL computation
-        loader: Validation data loader
-        beta: KL coefficient
-        gamma: Value margin coefficient
-        accelerator: Distributed training context
-        use_ref_model: Whether to compute KL divergence
-        flatten_steps: Whether to use flattened batch processing
-        
-    Returns:
-        Dictionary with validation metrics
-    """
     model.eval()
-    
-    # Metric accumulators (distributed safe)
+
     total_loss = torch.tensor(0.0, device=accelerator.device)
     total_flow = torch.tensor(0.0, device=accelerator.device)
     total_kl = torch.tensor(0.0, device=accelerator.device)
@@ -752,7 +502,6 @@ def evaluate(model, ref_model, loader, beta, gamma, accelerator, use_ref_model: 
                 total_acc += acc
                 total_samples += 1
         else:
-            # Batch is list of trajectories
             for sample in batch:
                 input_ids = sample["input_ids"].to(accelerator.device)
                 attention_mask = sample["attention_mask"].to(accelerator.device)
@@ -776,18 +525,14 @@ def evaluate(model, ref_model, loader, beta, gamma, accelerator, use_ref_model: 
                 total_eval += eval_loss
                 total_acc += acc
                 total_samples += 1
-            
-    # Distributed Gather
-    # Sum up all metrics across all processes
-    # Note: gather_for_metrics is simpler for tensor batches, but manual reduce is safer for scalars
+
     all_loss = accelerator.reduce(total_loss, reduction="sum")
     all_flow = accelerator.reduce(total_flow, reduction="sum")
     all_kl = accelerator.reduce(total_kl, reduction="sum")
     all_acc = accelerator.reduce(total_acc, reduction="sum")
     all_eval = accelerator.reduce(total_eval, reduction="sum")
     all_count = accelerator.reduce(total_samples, reduction="sum")
-    
-    # Safe division
+
     count = max(1.0, all_count.item())
     metrics = {
         "val_loss": all_loss.item() / count,
@@ -800,29 +545,20 @@ def evaluate(model, ref_model, loader, beta, gamma, accelerator, use_ref_model: 
     model.train()
     return metrics
 
-# --- Checkpoint Management ---
 def rotate_checkpoints(output_dir: Path, limit: int):
     if not output_dir.exists(): return
     checkpoints = sorted([d for d in output_dir.iterdir() if d.is_dir() and d.name.startswith("checkpoint-")], key=lambda x: os.path.getmtime(x))
     if len(checkpoints) > limit:
         for ckpt in checkpoints[:-limit]:
             shutil.rmtree(ckpt)
-# 6
-# Resolve data path:
-# Resolve dataset paths (train/val/test) from analyze/tree_paths.json.
-# Falls back to config data_path for train and default paths if missing.
 def resolve_split_paths(cfg: Dict[str, Any]) -> Dict[str, Path]:
     meta = Path("analyze/tree_paths_rel.json")
     train_path = cfg.get("data_path")
-    val_path = None
-    test_path = None
 
     if meta.exists():
         try:
             info = json.loads(meta.read_text(encoding="utf-8"))
             train_path = info.get("tree_path_train") 
-            val_path = info.get("tree_path_val")
-            test_path = info.get("tree_path_test")
         except Exception:
             pass
 
@@ -838,30 +574,22 @@ def resolve_split_paths(cfg: Dict[str, Any]) -> Dict[str, Path]:
             return base
         return Path(default)
 
-    train_path_p = normalize(train_path, "data/processed/extes/Ex_Tree_paths.jsonl")
-    val_path_p = normalize(val_path, "data/processed/extes/Ex_Tree_val_paths.jsonl")
-    test_path_p = normalize(test_path, "data/processed/extes/Ex_Tree_test_paths.jsonl")
+    train_path_p = normalize(train_path, "data/processed/extes/paths/Ex_Tree_train_paths.jsonl")
+    val_path_p = Path("__auto_split_validation__.jsonl")
 
-    return {"train": train_path_p, "val": val_path_p, "test": test_path_p}
+    return {"train": train_path_p, "val": val_path_p}
 
-# --- Main ---
 def main():
-    cfg = load_cls_config()
+    cfg = load_cls_config(Path(os.environ.get("AFPO_CONFIG", "configs/train_emoflow.yaml")))
     paths = resolve_split_paths(cfg)
     train_path = paths["train"]
     val_path = paths["val"]
 
-    # Backup original train paths file
-    backup_path = train_path.with_suffix(train_path.suffix + ".bak")
-    shutil.copy(train_path, backup_path)
-
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Determine Output Dir (always new run; resume via cfg if needed)
     out_dir = Path(cfg["output_dir"]) / ts
 
-    project_config = ProjectConfiguration(project_dir=str(out_dir), automatic_checkpoint_naming=True)
-    # 1. 设置超时时间为 3600 秒 (1小时)
+    project_config = ProjectConfiguration(project_dir=str(out_dir), automatic_checkpoint_naming=False)
     timeout_kwargs = InitProcessGroupKwargs(timeout=timedelta(seconds=3600))
 
     accelerator = Accelerator(
@@ -871,14 +599,26 @@ def main():
     )
     set_seed(int(cfg["seed"]))
 
-    # Setup Logging Path (Main Process)
     log_file_path = None
     if accelerator.is_main_process:
         out_dir.mkdir(parents=True, exist_ok=True)
-        # Create a specific log file for this run inside the output dir to avoid overwrites
         log_file_path = out_dir / "training_log.jsonl"
-        print(f"Output Directory: {out_dir}")
-        print(f"Logging to: {log_file_path}")
+
+        text_log_path = Path(cfg.get("log_path", "logs/afpo_cls.log"))
+        text_log_path.parent.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(message)s",
+            handlers=[logging.FileHandler(text_log_path), logging.StreamHandler()],
+            force=True,
+        )
+        logging.info(f"Output Directory: {out_dir}")
+        logging.info(f"Logging to: {log_file_path}")
+        logging.info(f"Text log: {text_log_path}")
+
+    def log_main(msg: str) -> None:
+        if accelerator.is_main_process:
+            logging.info(msg)
     save_best = bool(cfg.get("save_best", False))
     best_metric = str(cfg.get("best_metric", "val_loss"))
     best_mode = str(cfg.get("best_metric_mode", "min")).lower()
@@ -892,10 +632,19 @@ def main():
     eval_use_ref_model = bool(cfg.get("eval_use_ref_model", True))
     flatten_steps = bool(cfg.get("flatten_steps", False))
 
-    # 2. Data
-    accelerator.print("Loading Data...")
+    log_main("Loading Data...")
     train_samples = load_samples(train_path)
-    val_samples = load_samples(val_path)
+    if val_path.exists():
+        val_samples = load_samples(val_path)
+    else:
+        if len(train_samples) < 2:
+            raise ValueError("At least two training trajectories are required")
+        rng = random.Random(int(cfg.get("seed", 1)))
+        rng.shuffle(train_samples)
+        val_count = max(1, int(round(len(train_samples) * float(cfg.get("val_ratio", 0.1)))))
+        val_count = min(val_count, len(train_samples) - 1)
+        val_samples = train_samples[:val_count]
+        train_samples = train_samples[val_count:]
     strat_id_map = load_strategy_id_map()
     id_to_name = id_to_name_map(strat_id_map)
     updated_map: Dict[str, Dict[int, Dict[str, Any]]] = {}
@@ -904,7 +653,7 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
-    accelerator.print("Initializing Datasets (Lazy)...")
+    log_main("Initializing Datasets (Lazy)...")
     strat_id_map = load_strategy_id_map()
     id_to_name = id_to_name_map(strat_id_map)
     updated_map: Dict[str, Dict[int, Dict[str, Any]]] = {}
@@ -923,11 +672,13 @@ def main():
         loader_kwargs["persistent_workers"] = True
         loader_kwargs["prefetch_factor"] = int(cfg.get("prefetch_factor", 2))
 
-    train_loader = DataLoader(train_ds, shuffle=True, **loader_kwargs)
+    train_sampler = WeightedRandomSampler(
+        train_ds.sample_weights, num_samples=len(train_ds), replacement=True
+    )
+    train_loader = DataLoader(train_ds, sampler=train_sampler, **loader_kwargs)
     val_loader = DataLoader(val_ds, shuffle=False, **loader_kwargs)
 
-    # 3. Model
-    accelerator.print("Initializing Models...")
+    log_main("Initializing Models...")
     model = AFPOClassifier(
         cfg["model_name"],
         use_lora=cfg["use_lora"],
@@ -958,18 +709,16 @@ def main():
         num_training_steps=max_train_steps,
     )
 
-    # 4. Prepare
     model, optimizer, train_loader, val_loader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_loader, val_loader, lr_scheduler
     )
     ref_model.to(accelerator.device)
 
-    # 5. Resume Logic (config-driven; set cfg['resume_from_checkpoint'] if needed)
     global_step = 0
     start_epoch = 0
     resume_ckpt = cfg.get("resume_from_checkpoint")
     if resume_ckpt:
-        accelerator.print(f"Resuming from {resume_ckpt}")
+        log_main(f"Resuming from {resume_ckpt}")
         accelerator.load_state(resume_ckpt)
         try:
             global_step = int(Path(resume_ckpt).name.split("-")[-1])
@@ -977,8 +726,7 @@ def main():
         except ValueError:
             pass
 
-    accelerator.print(f"Starting training from Epoch {start_epoch}")
-    # 6. Training Loop
+    log_main(f"Starting training from Epoch {start_epoch}")
     for epoch in range(start_epoch, cfg["epochs"]):
         model.train()
         epoch_loss_total = 0.0
@@ -990,7 +738,7 @@ def main():
             steps_in_epoch = global_step % num_update_steps_per_epoch
             batches_to_skip = steps_in_epoch * accelerator.gradient_accumulation_steps
             active_loader = accelerator.skip_first_batches(train_loader, batches_to_skip)
-            accelerator.print(f"Skipping {batches_to_skip} batches...")
+            log_main(f"Skipping {batches_to_skip} batches...")
         else:
             active_loader = train_loader
 
@@ -1070,8 +818,10 @@ def main():
                         flat_attention_mask = torch.cat(flat_attention_mask, dim=0)
 
                         logits, v_logits = model(flat_input_ids, flat_attention_mask)
-                        with torch.no_grad():
-                            logits_ref, _ = ref_model(flat_input_ids, flat_attention_mask)
+                        logits_ref = None
+                        if cfg["beta"] > 0:
+                            with torch.no_grad():
+                                logits_ref, _ = ref_model(flat_input_ids, flat_attention_mask)
 
                         denom = max(1, len(sample_meta))
                         loss_sum = None
@@ -1080,7 +830,7 @@ def main():
                             end = meta["end"]
                             logits_s = logits[start:end]
                             v_logits_s = v_logits[start:end]
-                            logits_ref_s = logits_ref[start:end]
+                            logits_ref_s = logits_ref[start:end] if logits_ref is not None else None
 
                             loss, flow, kl, acc, eval_loss = flow_balance_loss(
                                 logits_s, logits_ref_s, v_logits_s,
@@ -1129,8 +879,10 @@ def main():
                         traj_id = sample.get("traj_id")
 
                         logits, v_logits = model(input_ids, attention_mask)
-                        with torch.no_grad():
-                            logits_ref, _ = ref_model(input_ids, attention_mask)
+                        logits_ref = None
+                        if cfg["beta"] > 0:
+                            with torch.no_grad():
+                                logits_ref, _ = ref_model(input_ids, attention_mask)
 
                         loss, flow, kl, acc, eval_loss = flow_balance_loss(
                             logits, logits_ref, v_logits, labels, worst_ids, q_vals, v_vals, beta=cfg["beta"], gamma=cfg["gamma"]
@@ -1168,14 +920,12 @@ def main():
                     optimizer.zero_grad()
                     global_step += 1
                     
-                    # Checkpoint
                     if save_steps > 0 and global_step % save_steps == 0:
                         save_path = out_dir / f"checkpoint-{global_step}"
                         accelerator.save_state(save_path)
                         if accelerator.is_main_process:
                             rotate_checkpoints(out_dir, cfg.get("save_total_limit", 2))
 
-                # Logging
                 if valid_count > 0:
                     avg_loss = batch_loss_accum / valid_count
                     avg_flow = sum(flow_list) / valid_count
@@ -1197,7 +947,7 @@ def main():
         do_eval = eval_enabled and eval_every_epochs > 0 and ((epoch + 1) % eval_every_epochs == 0)
         metrics = None
         if do_eval:
-            accelerator.print(f"Validating Epoch {epoch+1}...")
+            log_main(f"Validating Epoch {epoch+1}...")
             metrics = evaluate(
                 model,
                 ref_model,
@@ -1209,16 +959,14 @@ def main():
                 flatten_steps=flatten_steps,
             )
             if accelerator.is_main_process:
-                print(f"Epoch {epoch+1} Metrics: {metrics}")
+                logging.info(f"Epoch {epoch+1} Metrics: {metrics}")
 
-        # Save Epoch Checkpoint (all ranks) if enabled
         if save_epoch_checkpoint:
             save_path = out_dir / f"checkpoint-{global_step}"
             accelerator.save_state(save_path)
             if accelerator.is_main_process:
                 rotate_checkpoints(out_dir, cfg.get("save_total_limit", 2))
 
-        # Log to file (independent of checkpoints)
         if log_file_path and (train_metrics is not None or metrics is not None):
             log_entry = {"epoch": epoch + 1, "step": global_step, "timestamp": str(datetime.now())}
             if train_metrics is not None:
@@ -1228,7 +976,6 @@ def main():
             with open(log_file_path, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
 
-        # Save best checkpoint by metric
         if metrics is not None and save_best and best_metric in metrics:
             metric_val = float(metrics[best_metric])
             is_better = metric_val < best_value if best_mode == "min" else metric_val > best_value
@@ -1252,9 +999,7 @@ def main():
                         json.dump(best_meta, f)
                 accelerator.wait_for_everyone()
         accelerator.wait_for_everyone()
-    # Persist updated V_teacher and strategy_probs back to train_paths file (backup already made)
     if updated_map:
-        # Load original JSONL
         lines: List[str] = train_path.read_text(encoding="utf-8").splitlines()
         updated_lines: List[str] = []
         for line in lines:
@@ -1264,11 +1009,9 @@ def main():
             traj_id = obj.get("traj_id")
             if traj_id and traj_id in updated_map:
                 per_traj = updated_map[traj_id]
-                # update states-aligned arrays
                 v_teacher = obj.get("V_teacher") or []
                 strategy = obj.get("strategy") or []
                 for step_idx, upd in per_traj.items():
-                    # ensure length
                     while len(v_teacher) <= step_idx:
                         v_teacher.append(0.0)
                     v_teacher[step_idx] = upd.get("V_teacher", v_teacher[step_idx])
@@ -1280,7 +1023,7 @@ def main():
             updated_lines.append(json.dumps(obj, ensure_ascii=False))
         train_path.write_text("\n".join(updated_lines), encoding="utf-8")
 
-    accelerator.print("Training Finished!")
+    log_main("Training Finished!")
 
 if __name__ == "__main__":
     main()

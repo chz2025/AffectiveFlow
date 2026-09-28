@@ -2,12 +2,16 @@
   <img src="assets/figs/aflow_logo.png" height="80" alt="AFlow logo">
 </p>
 
-<p align="center">
-  <img src="figure1.png" width="720" alt="AFlow overview">
-</p>
-<p align="center"><sub>Figure 1. Overview of holistic supervision, preference learning, and AFlow.</sub></p>
+<h2 align="center">
+  <b>Affective Flow Language Model for Emotional Support Conversation</b>
+</h2>
 
-<h1 align="center">Affective Flow for Emotional Support Conversation</h1>
+<p align="center">
+  <a href="http://arxiv.org/abs/2602.08826"><img src="https://img.shields.io/badge/arXiv-2602.08826-b31b1b?style=flat-square" alt="arXiv"></a>&nbsp;
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-84cc16?style=flat-square" alt="License: MIT"></a>&nbsp;
+  <img src="https://img.shields.io/badge/Python-3.10+-334155?style=flat-square&logo=python&logoColor=white" alt="Python 3.10+">&nbsp;
+  <img src="https://img.shields.io/badge/PyTorch-2.0+-f97316?style=flat-square&logo=pytorch&logoColor=white" alt="PyTorch 2.0+">
+</p>
 
 <p align="center">
   <a href="https://arxiv.org/abs/2602.08826"><img src="assets/buttons/paper.svg" alt="Paper"></a>
@@ -16,6 +20,11 @@
   <a href="#results-and-experiments"><img src="assets/buttons/results.svg" alt="Results"></a>
   <a href="#citation"><img src="assets/buttons/citation.svg" alt="Citation"></a>
 </p>
+
+<p align="center">
+  <img src="figure1.png" width="720" alt="AFlow overview">
+</p>
+<p align="center"><sub>Figure 1. Overview of holistic supervision, preference learning, and AFlow.</sub></p>
 
 ## Overview
 
